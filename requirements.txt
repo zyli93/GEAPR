@@ -1,5 +1,4 @@
 ujson
-_pickle
 argparse
 pandas
 numpy
