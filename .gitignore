@@ -1,0 +1,10 @@
+# dataset file
+data/
+!data/README.md
+
+# other repos
+otherrepo/
+
+# pycharm related
+
+.idea/
