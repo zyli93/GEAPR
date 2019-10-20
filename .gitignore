@@ -6,5 +6,7 @@ data/
 otherrepo/
 
 # pycharm related
+src/__pycache__/
+*.pyc
 
 .idea/
