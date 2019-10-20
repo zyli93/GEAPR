@@ -91,13 +91,13 @@ def build_msg(stage, **kwargs):
 def dump_pkl(path, obj):
     """helper to dump objects"""
     with open(path, "wb") as fout:
-        pickle.dump(path, obj)
+        pickle.dump(obj, fout)
 
 
 def load_pkl(path):
     """helper to load objects"""
     with open(path, "rb") as fin:
-        return pickle.load(path)
+        return pickle.load(fin)
 
 
 

@@ -48,19 +48,29 @@ def parse_user():
             user.friend.pkl,
             user.profile.pkl
     """
+    print("\tparsing user ...")
     user_profile = {}
     user_adj = {}
+
+    if not os.path.isdir(PARSE_DIR):
+        os.mkdir(PARSE_DIR)
+
+    kept_users = load_pkl(PARSE_DIR + "kept.user.hash")
+    kept_users = set(kept_users)
 
     with open(DATA_DIR + "user.json", "r") as fin:
         for ind, ln in enumerate(fin):
             data = json.loads(ln)
             user_id = data['user_id']
+            if user_id not in kept_users:  # discard infrequent or irrelevant cities
+                continue
             user_adj[user_id] = data['friends'].split(", ")
             del data['friends']
             del data['user_id']
             user_profile[user_id] = data
 
     # user adjacency and profile dictionary separately
+    print("\tdumping user-friendship and user-profile information ...")
     dump_pkl(PARSE_DIR + "user.friend.pkl", user_adj)
     dump_pkl(PARSE_DIR + "user.profile.pkl", user_profile)
 
@@ -75,6 +85,8 @@ def parse_business():
 
     city_business = {}
     business_profiles ={}
+
+    print("[parse_business] parsing all business without selecting cities ...")
 
     # count business by city and state
     with open(DATA_DIR + "business.json", "r") as fin:
@@ -93,6 +105,7 @@ def parse_business():
             city_business[city].append(business_id)
 
     # save city business mapping
+    print("[parse business] dumping business.profile and city.business ...")
     dump_pkl(PARSE_DIR + "business.profile.pkl", business_profiles)
     dump_pkl(PARSE_DIR + "city.business.pkl", city_business)
 
@@ -115,7 +128,7 @@ def parse_interactions(keep_city, min_count):
     businesses = []
     cities = []
 
-    print("\tloading review.json ...")
+    print("[parse interactions] loading review.json ...")
     with open(DATA_DIR + "review.json", "r") as fin:
         for ln in fin:
             data = json.loads(ln)
@@ -149,18 +162,12 @@ def parse_interactions(keep_city, min_count):
 
     interact.to_csv(PARSE_DIR + "user.business.interact.csv")
 
-    # with open(DATA_DIR + "tip.json", "r") as fin:
-    #     for ln in fin:
-    #         data = json.loads(ln)
-    #         uid = data['user_id']
-    #         bid = data['business_id']
-    #         city = business_profile[bid]["city"]
-    #         if city in keep_cities:
-    #             print("{},{},{},{}".format(uid, bid, city, "tip"), file=fout)
+    # kept user for parse user
+    user_kept = interact["user"].unique().tolist()
+    dump_pkl(PARSE_DIR + "kept.user.hash", user_kept)
 
 
 def city_clustering(city,
-                    min_count,
                     user_profile,
                     business_profile,
                     business_of_city,
@@ -283,24 +290,27 @@ def generate_data(city):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("cities", help="city list to keep")
     parser.add_argument("-r", "--raw", action="store_true", help="whether from raw")
-    parser.add_argument("-cc", "--city_cluster", action="store_true",
+    parser.add_argument("-c", "--city_cluster", action="store_true",
                         help="whether do city clustering")
     parser.add_argument("-g", "--gen_data", action="store_true",
                         help="whether generate dataset from u/b interactions")
 
-    parser.add_argument("-c", "--cities", help="city list to keep")
     parser.add_argument("--min_count", type=int, nargs="?",
                         help="Users/movies have to exceed the min count to be used.")
 
     args = parser.parse_args()
-    keep_cities = args.cities.strip().split(",")
 
     if args.raw:
-        print("parsing user/business/interactions from scratch ...")
-        parse_user()
+        assert args.min_count, "min_count shouldn't be none!"
+        print("[-raw] parsing businesses/interactions/users from scratch ...")
+
+        keep_cities = args.cities.strip().split(",")
+
         parse_business()
-        parse_interactions(keep_city=keep_cities)
+        parse_interactions(keep_city=keep_cities, min_count=args.min_count)
+        parse_user()
 
     if args.city_cluster:
         print("parsing by cities: " + args.cities)
@@ -315,18 +325,18 @@ if __name__ == "__main__":
         user_friendships = load_pkl(PARSE_DIR + "user.friend.pkl")
 
         for city in args.cities:
-            assert args.min_count , "--min_count not given"
+            assert args.min_count, "--min_count not given"
             city_clustering(city=city,
                             user_profile=user_profile,
                             business_profile=business_profile,
                             business_of_city=city_business[city],
                             interactions=ub_interactions,
-                            user_friendship=user_friendships,
-                            min_count=args.min_count)
+                            user_friendship=user_friendships)
 
     if args.gen_data:
         print("building implicit graph from cities ...")
-        for city in args.cities:
+        keep_cities = args.cities.strip().split(",")
+        for city in keep_cities:
             generate_data(city)
 
 
