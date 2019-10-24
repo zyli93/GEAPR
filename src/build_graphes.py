@@ -35,9 +35,8 @@ def build_implicit_user_adj(dataset, threshold):
     if dataset == "ml":
         u_mat = load_npz(parse_folder + "ml/u.npz")
     elif dataset == "yelp/lasvegas":
-
+        raise NotImplementedError()
     else:
-
         raise NotImplementedError("other dataset not implemented yet")
 
     # normalize over each user
@@ -47,6 +46,7 @@ def build_implicit_user_adj(dataset, threshold):
     u_sim = u_norm.dot(u_norm.T)
 
     # two ways: filter out or boolean
+    # TODO: what are the two ways
     # u_sim[u_sim <= threshold] = 0  # empty out lower edges
     # u_adj = u_sim
     
@@ -58,7 +58,7 @@ def build_implicit_user_adj(dataset, threshold):
 #     Func for item graphs
 # ===========================
 
-
+# TODO: what is this? designed for MovieLens only?
 def build_item_adj_ml(threshold, w):
     # ** whether to consider genre information **
     # process movie genre
@@ -157,14 +157,15 @@ if __name__ == "__main__":
     parser.add_argument("-it", "--i_threshold", type=float,
                         help="item similarity graph threshold")
     parser.add_argument("-rwr_o", "--rwr_order", type=int,
-                        help="order of random walk with restart.")
+                        help="order of random walk with restart.")  # TODO: what is rwr?
     parser.add_argument("-rwr_c", "--rwr_constant", type=float,
                         help="constant of random walk with restart.")
     parser.add_argument("--ml_weight", type=float,
-                        help="[To Fill In.]")  # TODO
+                        help="[To Fill In.]")  # TODO: what is this?
     args = parser.parse_args()
 
 
+    # TODO: ? using argparse or manual parsing ??
     if len(sys.argv) < 2:
         print("python {} [dataset] [u_threshold]"
               "[rwr_order] [rwr_c] []".format(sys.argv[0]))

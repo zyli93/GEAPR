@@ -5,6 +5,7 @@
 2. In `run_pp.py`, find the comment that contains `** xxx **`. This is the place where user-item interactions are build.
 
 3. move forward infrequent entries, shit. (on flight, 6-8)
+4. TODO: document all data generation process
 
 
 ## Paper writing wise
