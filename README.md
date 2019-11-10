@@ -1,12 +1,12 @@
-#dugrilp
+# dugrilp
 
 Dual Graph Interpretable Link Prediction
 
 There's nothing in this one now.
 
-##Preprocessing
+## Preprocessing
 
-###Yelp dataset
+### Yelp dataset
 1. Run preprocessing on yelp dataset
 ```bash
 $ python src/prep_yelp.py --preprocess
@@ -27,6 +27,6 @@ phx     10      10      10682      9440
 
 3. 
 
-##Run `dugrilp`
+## Run `dugrilp`
 
 
