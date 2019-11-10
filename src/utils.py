@@ -37,6 +37,10 @@ def create_dir(dataset):
     if os.path.isdir(perf_dir):
         os.mkdir(perf_dir)
 
+def make_dir(path):
+    if not os.path.isdir(path):
+        os.mkdir(path)
+
 
 def parse_ae_layers(struct_str):
     # parse layers size:

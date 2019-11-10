@@ -21,10 +21,11 @@ import argparse
 import pandas as pd
 import numpy as np
 from collections import Counter
-
-from utils import dump_pkl, load_pkl
 from sklearn.model_selection import train_test_split
 
+from utils import dump_pkl, load_pkl, make_dir
+
+PARSE_ROOT_DIR = "./data/parse/"
 DATA_DIR = "./data/raw/yelp/"
 PARSE_DIR = "./data/parse/yelp/"
 INTERACTION_DIR = "./data/parse/interactions/"
@@ -35,8 +36,8 @@ CITY_NAME_ABBR = {"Las Vegas": "lv", "Toronto": "tor", "Phoenix": "phx"}
 
 def load_user_business():
     """helper function that load user and business"""
-    user_profile = load_pkl(PARSE_DIR + "user.profile.pkl")
-    business_profile = load_pkl(PARSE_DIR + "business.profile.pkl")
+    user_profile = load_pkl(PARSE_DIR + "user_profile.pkl")
+    business_profile = load_pkl(PARSE_DIR + "business_profile.pkl")
     return user_profile, business_profile
 
 
@@ -48,16 +49,17 @@ def parse_user():
             user.friend.pkl,
             user.profile.pkl
     """
-    print("\tparsing user ...")
     user_profile = {}
     user_friend = {}
-
+    
     if not os.path.isdir(PARSE_DIR):
         os.mkdir(PARSE_DIR)
 
-    users_list = load_pkl(PARSE_DIR + "users.list.pkl")
+    print("\t[parse user] load user list")
+    users_list = load_pkl(PARSE_DIR + "users_list.pkl")
     users_list = set(users_list)
 
+    print("\t[parse user] building user profiles")
     with open(DATA_DIR + "user.json", "r") as fin:
         for ind, ln in enumerate(fin):
             data = json.loads(ln)
@@ -70,9 +72,9 @@ def parse_user():
             user_profile[user_id] = data
 
     # user adjacency and profile dictionary separately
-    print("\tdumping user-friendship and user-profile information ...")
-    dump_pkl(PARSE_DIR + "user.friend.pkl", user_friend)
-    dump_pkl(PARSE_DIR + "user.profile.pkl", user_profile)
+    print("\t[parse user] dumping user-friendship and user-profile information ...")
+    dump_pkl(PARSE_DIR + "user_friend.pkl", user_friend)
+    dump_pkl(PARSE_DIR + "user_profile.pkl", user_profile)
 
 
 def parse_business():
@@ -86,9 +88,8 @@ def parse_business():
     city_business = {}  # dictionary of city: [business list]
     business_profiles ={}  # dictionary of business profile
 
-    print("[parse_business] preprocessing all business without selecting cities ...")
-
     # count business by location (city and state)
+    print("\t[parse_business] preprocessing all business without selecting cities ...")
     with open(DATA_DIR + "business.json", "r") as fin:
         for ind, ln in enumerate(fin):
             data = json.loads(ln)
@@ -110,31 +111,28 @@ def parse_business():
             city_business[city].append(business_id)
 
     # save city business mapping
-    print("[parse business] dumping business.profile and city.business ...")
+    print("\t[parse business] dumping business.profile and city.business ...")
     dump_pkl(PARSE_DIR + "business_profile.pkl", business_profiles)
     dump_pkl(PARSE_DIR + "city_business.pkl", city_business)
 
 
-def parse_interactions(min_count):
+def parse_interactions():
     """draw interact from `review.json` and `tips.json`.
 
     output: ub.interact.csv
 
     Args:
         keep_city - the interact of cities to keep
-        min_count -  (business min count, user min count)
     """
 
     # business_profile only contains city in Lv, Tor, and Phx
+    print("\t[parse interactions] loading business_profile pickle...")
     business_profile = load_pkl(PARSE_DIR + "business_profile.pkl")
-
-    # minimum count of both business and user
-    # b_min_count, u_min_count = min_count
 
     users, businesses, cities = [], [], []
 
     # create records as (user, business, city) tuple
-    print("[parse interactions] loading review.json ...")
+    print("\t[parse interactions] loading review.json ...")
     with open(DATA_DIR + "review.json", "r") as fin:
         for ln in fin:
             data = json.loads(ln)
@@ -149,7 +147,7 @@ def parse_interactions(min_count):
         'user': users, 'business': businesses, "city": cities})
 
     # remove duplicate reviews
-    print("\tremoving duplicates ...")
+    print("\t[parse interactions] removing duplicates ...")
     interactions.drop_duplicates(subset=['user', 'business'], keep="first", inplace=True)
 
     # remove rear businesses and users appear less than min-count times
@@ -160,11 +158,11 @@ def parse_interactions(min_count):
     # interactions["u_count"] = interactions.user.apply(lambda x: u_counter[x])
     # interactions = interactions[(interactions.b_count >= b_min_count) & (interactions.u_count >= u_min_count)]
 
-    interactions.to_csv(PARSE_DIR + "user.business.interact.csv", index=False)
+    interactions.to_csv(PARSE_DIR + "user_business_interact.csv", index=False)
 
     # kept user for parse user
     user_remained = interactions["user"].unique().tolist()
-    dump_pkl(PARSE_DIR + "users.list.pkl", user_remained)
+    dump_pkl(PARSE_DIR + "users_list.pkl", user_remained)
 
 
 def city_clustering(city,
@@ -175,6 +173,13 @@ def city_clustering(city,
                     interactions,
                     user_friendships):
     """
+    TODO: re-org this whole piece of docstring
+
+    city cluster create city-specific datasets
+    - User and business ids are replaced to new ones
+    - Friendships are filtered to users only in the same city
+    - business_min_count and user_min_count have to be set
+
     narrow down information to specific cities
 
     Args:
@@ -194,7 +199,7 @@ def city_clustering(city,
         city_business_profile: new id-profile
         interaction_of_city: csv files with new ids
     """
-    print("\t[--city_cluster] Processing city: {}".format(city))
+    print("\t[city_cluster] Processing city: {}".format(city))
 
     # make specific folder for city
     city_dir = PARSE_DIR + CITY_NAME_ABBR[city] + "/"
@@ -208,7 +213,7 @@ def city_clustering(city,
     interactions_of_city = interactions[interactions["city"] == city]
 
     # remove rear businesses and users appear less than min-count times
-    print("\tremoving entries under min_count b:{}, u:{}".format(business_min_count, user_min_count))
+    print("\t\t[city_cluster] removing entries under min_count b:{}, u:{}".format(business_min_count, user_min_count))
     b_counter = Counter(interactions_of_city.business)
     u_counter = Counter(interactions_of_city.user)
     interactions_of_city["b_count"] = interactions_of_city.business.apply(lambda x: b_counter[x])
@@ -218,8 +223,11 @@ def city_clustering(city,
 
     user_of_city = interactions_of_city['user'].unique().tolist()  # list
     business_of_city = interactions_of_city["business"].unique().tolist()
+    print("\t\t[city_cluster] # of users {}, # of business {}".format(
+        len(user_of_city), len(business_of_city)))
 
-    # ** before this point: old user/business id; after this point: new user/business index
+    # ** before this point: old user/business id; 
+    # ** after this point: new user/business index
 
     # user, business index starting from 1 to len(user_of_city)
     city_uid2ind = dict(zip(user_of_city, range(1, len(user_of_city) + 1)))
@@ -243,20 +251,19 @@ def city_clustering(city,
         city_business_profile[city_bid2ind[bid]] = profile
 
     # user/business id to index in interactions
-    # TODO: need to drop u_count or b_count?
     interactions_of_city['user'] = interactions_of_city['user'].apply(lambda x: city_uid2ind[x])
     interactions_of_city['business'] = interactions_of_city['business'].apply(lambda x: city_bid2ind[x])
 
     # save business_list, user_friendship, and
     dump_pkl(city_dir + "businesses_of_city.pkl", business_of_city)
     dump_pkl(city_dir + "users_of_city.pkl", user_of_city)
-    dump_pkl(city_dir + "business.reindex", city_bid2ind)
-    dump_pkl(city_dir + "user.reindex", city_uid2ind)
+    dump_pkl(city_dir + "business.reindex.pkl", city_bid2ind)
+    dump_pkl(city_dir + "user.reindex.pkl", city_uid2ind)
 
     dump_pkl(city_dir + "city_user_friend.pkl", city_user_friendship)
 
     dump_pkl(city_dir + "city_business_profile.pkl", city_business_profile)
-    dump_pkl(city_dir + "city_user_profile_pkl", city_user_profile)
+    dump_pkl(city_dir + "city_user_profile.pkl", city_user_profile)
     interactions_of_city.to_csv(city_dir + "user_business_interaction.csv", index=False)
 
     print("\tCity {} parsed!".format(city))
@@ -314,41 +321,45 @@ def generate_data(city, ratio):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--preprocess", action="store_true", help="Preprocess business, user-business interaction, and users")
-    parser.add_argument("--city_cluster", action="store_true", help="whether do city clustering")
-    parser.add_argument("-g", "--gen_data", action="store_true", help="whether generate dataset from u/b interactions")
-    parser.add_argument("--business_min_count", type=int, nargs="?", help="Business appearance has to be greater than the min count to be used.")
-    parser.add_argument("--user_min_count", type=int, nargs="?", help="User appearance has to be greater than the min count to be used.")
-    parser.add_argument("--ttv_ratio", help="Ratio of train, test, and validation sets")
+    parser.add_argument("--preprocess", action="store_true", 
+            help="Preprocess business, user-business interaction, and users")
+    parser.add_argument("--city_cluster", action="store_true", 
+            help="whether do city clustering")
+    parser.add_argument("--gen_data", action="store_true", 
+            help="whether generate dataset from u/b interactions")
+    parser.add_argument("--business_min_count", type=int, nargs="?", 
+            help="Business appearance has to be greater than the min count to be used.")
+    parser.add_argument("--user_min_count", type=int, nargs="?", 
+            help="User appearance has to be greater than the min count to be used.")
+    parser.add_argument("--ttv_ratio", 
+            help="Ratio of train, test, and validation sets")
     args = parser.parse_args()
 
     if args.preprocess:
-        assert args.business_min_count, "business_min_count should not be empty"
-        assert args.user_min_count, "user_min_count should not be empty"
+        make_dir(PARSE_ROOT_DIR)
+        make_dir(PARSE_DIR)
 
         print("[--preprocess] parsing businesses/interactions/users from scratch ...")
         parse_business()
-        parse_interactions(min_count=(args.business_min_count, args.user_min_count))
+        parse_interactions()
         parse_user()
         print("[--preprocess] done!")
 
     if args.city_cluster:
-        # TODO: add more details in this docstring
-        """
-        city cluster create city-specific datasets
-        - User and business ids are replaced to new ones
-        - Friendships are filtered to users only in the same city
-        - TODO
-        """
-        user_profile = load_pkl(PARSE_DIR + "user.profile.pkl")
-        business_profile = load_pkl(PARSE_DIR + "business.profile.pkl")
-        city_business = load_pkl(PARSE_DIR + "city.business.pkl")
-        ub_interactions = pd.read_csv(PARSE_DIR + "ub.interactions.csv")
-        user_friendships = load_pkl(PARSE_DIR + "user.friend.pkl")
+
+        print("[--city_cluster] running city cluster")
+        assert args.business_min_count, "business_min_count should not be empty"
+        assert args.user_min_count, "user_min_count should not be empty"
+
+        print("\t[loading] processed files after preprocessing")
+        user_profile = load_pkl(PARSE_DIR + "user_profile.pkl")
+        business_profile = load_pkl(PARSE_DIR + "business_profile.pkl")
+        city_business = load_pkl(PARSE_DIR + "city_business.pkl")
+        ub_interactions = pd.read_csv(PARSE_DIR + "user_business_interact.csv")
+        user_friendships = load_pkl(PARSE_DIR + "user_friend.pkl")
 
         for city in CANDIDATE_CITY:
-            assert args.min_count, "--min_count not given"  # TODO: what is min count here???
-            print("Running City clustering on " + city)
+            print("\t[running] city clustering on " + city)
             city_clustering(city=city,
                             user_min_count=args.user_min_count,
                             business_min_count=args.business_min_count,
@@ -356,14 +367,13 @@ if __name__ == "__main__":
                             business_profile=business_profile,
                             interactions=ub_interactions,
                             user_friendships=user_friendships)
+        print("[--city_cluster] city_cluster done!")
 
     if args.gen_data:
-        # TODO: what is gen_data?
         assert args.ttv_ratio, "Train/Test/Validation ratio should not be empty!"
         ttv_ratio = tuple([int(x) for x in args.ttv_ratio.split(":")])
         print("building implicit graph from cities ...")
         for city in CANDIDATE_CITY:
             generate_data(city, ttv_ratio)
-
 
 

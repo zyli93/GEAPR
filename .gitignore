@@ -1,14 +1,16 @@
+#
 # Pycharm related
 .idea/
 
 # Dataset files
 data/
-
+yelp_dataset.tar
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+core
 
 # C extensions
 *.so

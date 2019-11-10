@@ -2,3 +2,4 @@ ujson
 argparse
 pandas
 numpy
+sklearn
