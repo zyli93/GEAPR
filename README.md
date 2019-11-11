@@ -8,13 +8,12 @@ There's nothing in this one now.
 
 ### Yelp dataset
 
-#### Steps
-1. Run preprocessing on yelp dataset
+#### 1. Run preprocessing on yelp dataset
 ```bash
 $ python src/prep_yelp.py preprocess
 ```
 
-2. Cluster the data records by cities
+#### 2. Cluster the data records by cities
 ```bash
 $ python src/prep_yelp.py city_cluster --business_min_count [bmc] --user_min_count [umc]
 ```
@@ -31,14 +30,22 @@ lv      10      10      32901      17146
 tor     10      10      9360       8942
 phx     10      10      10682      9440
 ```
+`lv` stands for Las Vegas, `tor` stands for Toronto, and `phx` stands for Pheonix.
 
-3. Generate train, test, and validation dataset
+#### 3. Generate train, test, and validation dataset
 ```bash
 $ python src/prep_yelp.py gen_data --ttv_ratio=10:1:1
 ```
 
-#### Find the results
+#### 4. Find the results
+In `./data/parse/yelp`, you would be able to see three folders:
+* `preprocess`: undivided features of preprocessing.
+* `citycluster`: all information clustered by cities (`lv`, `tor`, or `phx`)
+* `interactions`: user-business interacton and synthesized negative samples divided into `training`,
+    `testing`, and `validation`.
 
+
+Among them, `citycluster` and `interactions` will be used in the future procedures.
 
 
 ## Run `dugrilp`
