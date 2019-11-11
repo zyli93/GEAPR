@@ -6,6 +6,15 @@
     @author: Zeyu Li <zyli@cs.ucla.edu>
 """
 
+import os
+import sys
+import argparse
+from collections import Counter
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+
 try:
     import ujson as json
 except ImportError as e:
@@ -16,19 +25,18 @@ try:
 except ImportError as e:
     import pickle
 
-import os, sys
-import argparse
-import pandas as pd
-import numpy as np
-from collections import Counter
-from sklearn.model_selection import train_test_split
-
 from utils import dump_pkl, load_pkl, make_dir
 
-PARSE_ROOT_DIR = "./data/parse/"
+
+# Global constants
 DATA_DIR = "./data/raw/yelp/"
-PARSE_DIR = "./data/parse/yelp/"
-INTERACTION_DIR = "./data/parse/interactions/"
+
+PARSE_ROOT_DIR = "./data/parse/"
+PARSE_YELP_DIR = "./data/parse/yelp/"
+
+PREPROCESS_DIR = "./data/parse/yelp/preprocess/"
+CITY_DIR = "./data/parse/yelp/citycluster/"
+INTERACTION_DIR = "./data/parse/yelp/interactions/"
 
 CANDIDATE_CITY = ['Las Vegas', 'Toronto', 'Phoenix']
 CITY_NAME_ABBR = {"Las Vegas": "lv", "Toronto": "tor", "Phoenix": "phx"}
@@ -36,8 +44,8 @@ CITY_NAME_ABBR = {"Las Vegas": "lv", "Toronto": "tor", "Phoenix": "phx"}
 
 def load_user_business():
     """helper function that load user and business"""
-    user_profile = load_pkl(PARSE_DIR + "user_profile.pkl")
-    business_profile = load_pkl(PARSE_DIR + "business_profile.pkl")
+    user_profile = load_pkl(PREPROCESS_DIR + "user_profile.pkl")
+    business_profile = load_pkl(PREPROCESS_DIR + "business_profile.pkl")
     return user_profile, business_profile
 
 
@@ -51,12 +59,11 @@ def parse_user():
     """
     user_profile = {}
     user_friend = {}
-    
-    if not os.path.isdir(PARSE_DIR):
-        os.mkdir(PARSE_DIR)
+
+    make_dir(PREPROCESS_DIR)
 
     print("\t[parse user] load user list")
-    users_list = load_pkl(PARSE_DIR + "users_list.pkl")
+    users_list = load_pkl(PREPROCESS_DIR + "users_list.pkl")
     users_list = set(users_list)
 
     print("\t[parse user] building user profiles")
@@ -73,8 +80,8 @@ def parse_user():
 
     # user adjacency and profile dictionary separately
     print("\t[parse user] dumping user-friendship and user-profile information ...")
-    dump_pkl(PARSE_DIR + "user_friend.pkl", user_friend)
-    dump_pkl(PARSE_DIR + "user_profile.pkl", user_profile)
+    dump_pkl(PREPROCESS_DIR + "user_friend.pkl", user_friend)
+    dump_pkl(PREPROCESS_DIR + "user_profile.pkl", user_profile)
 
 
 def parse_business():
@@ -112,8 +119,8 @@ def parse_business():
 
     # save city business mapping
     print("\t[parse business] dumping business.profile and city.business ...")
-    dump_pkl(PARSE_DIR + "business_profile.pkl", business_profiles)
-    dump_pkl(PARSE_DIR + "city_business.pkl", city_business)
+    dump_pkl(PREPROCESS_DIR + "business_profile.pkl", business_profiles)
+    dump_pkl(PREPROCESS_DIR + "city_business.pkl", city_business)
 
 
 def parse_interactions():
@@ -127,7 +134,7 @@ def parse_interactions():
 
     # business_profile only contains city in Lv, Tor, and Phx
     print("\t[parse interactions] loading business_profile pickle...")
-    business_profile = load_pkl(PARSE_DIR + "business_profile.pkl")
+    business_profile = load_pkl(PREPROCESS_DIR + "business_profile.pkl")
 
     users, businesses, cities = [], [], []
 
@@ -158,11 +165,11 @@ def parse_interactions():
     # interactions["u_count"] = interactions.user.apply(lambda x: u_counter[x])
     # interactions = interactions[(interactions.b_count >= b_min_count) & (interactions.u_count >= u_min_count)]
 
-    interactions.to_csv(PARSE_DIR + "user_business_interact.csv", index=False)
+    interactions.to_csv(PREPROCESS_DIR + "user_business_interact.csv", index=False)
 
     # kept user for parse user
     user_remained = interactions["user"].unique().tolist()
-    dump_pkl(PARSE_DIR + "users_list.pkl", user_remained)
+    dump_pkl(PREPROCESS_DIR + "users_list.pkl", user_remained)
 
 
 def city_clustering(city,
@@ -202,7 +209,7 @@ def city_clustering(city,
     print("\t[city_cluster] Processing city: {}".format(city))
 
     # make specific folder for city
-    city_dir = PARSE_DIR + CITY_NAME_ABBR[city] + "/"
+    city_dir = CITY_DIR + CITY_NAME_ABBR[city] + "/"
     if not os.path.isdir(city_dir):
         os.mkdir(city_dir)
 
@@ -216,8 +223,13 @@ def city_clustering(city,
     print("\t\t[city_cluster] removing entries under min_count b:{}, u:{}".format(business_min_count, user_min_count))
     b_counter = Counter(interactions_of_city.business)
     u_counter = Counter(interactions_of_city.user)
-    interactions_of_city["b_count"] = interactions_of_city.business.apply(lambda x: b_counter[x])
-    interactions_of_city["u_count"] = interactions_of_city.user.apply(lambda x: u_counter[x])
+
+    # rewrite using `assign` to avoid warnings
+    # interactions_of_city["b_count"] = interactions_of_city.business.apply(lambda x: b_counter[x])
+    # interactions_of_city["u_count"] = interactions_of_city.user.apply(lambda x: u_counter[x])
+
+    interactions_of_city = interactions_of_city.assign(b_count=lambda x:x.business.map(b_counter))
+    interactions_of_city = interactions_of_city.assign(u_count=lambda x:x.user.map(u_counter))
     interactions_of_city = interactions_of_city[(interactions_of_city.b_count >= business_min_count) &
                                                 (interactions_of_city.u_count >= user_min_count)]
 
@@ -281,11 +293,12 @@ def generate_data(city, ratio):
         test.csv - testing data.csv
         valid.csv - validation data csv
     """
-    ub = pd.read_csv(PARSE_DIR + CITY_NAME_ABBR[city] + "/user_business_interactions.csv")
+    ub = pd.read_csv(CITY_DIR + CITY_NAME_ABBR[city] + "/user_business_interaction.csv")
+
     users = ub.user.tolist()
     businesses = ub.business.tolist()
 
-    print("\tzipping positive samples ...")
+    print("\t[--gen_data] {}: Zipping positive samples ...".format(city))
     pos_samples = set(zip(users, businesses))
     pos_count = ub.shape[1]
 
@@ -300,44 +313,60 @@ def generate_data(city, ratio):
             neg_samples.append((sample_u, sample_b))
 
     neg_samples = list(zip(*neg_samples))
-    df_neg = pd.DataFrame({
-        "user": neg_samples[0],
-        "business": neg_samples[1],
-        "label": 0})
+    df_neg = pd.DataFrame({"user": neg_samples[0], "business": neg_samples[1], "label": 0})
 
-    df_pos = ub[['user'], ['business']]
-    df_pos['label'] = 1
+    df_pos = ub[['user', 'business']]
+    # df_pos['label'] = 1  # use df.assign as a better way to append new columns
+    df_pos = df_pos.assign(label=1)
 
     # ratio: Train, Test, Validation
-    df_data = pd.concat([df_neg, df_pos], axis=0).reset_index()
-    train_df, test_df = train_test_split(df_data, random_state=723, test_size=())
-    train_df, valid_df = train_test_split(train_df, random_state=723, test_size=(1/9))
+    df_data = pd.concat([df_neg, df_pos], axis=0, ignore_index=True, sort=False)
 
-    train_df.to_csv(INTERACTION_DIR + "train.csv", index=False)
-    test_df.to_csv(INTERACTION_DIR + "test.csv", index=False)
-    valid_df.to_csv(INTERACTION_DIR + "valid.csv", index=False)
+    print("\t\tRatio: {}:{}:{};".format(*ratio), end=" ")
+    print("(Trn+Val:Tst): {}; (Trn:Tst): {}"
+          .format(ratio[1]/sum(ratio), ratio[2]/(ratio[0]+ratio[2])))
 
-    print("[--generate_data] Finished generating datasets.")
+    train_df, test_df = train_test_split(df_data, random_state=723, test_size=(ratio[1]/sum(ratio)))
+    train_df, valid_df = train_test_split(train_df, random_state=723,
+        test_size=(ratio[2]/(ratio[0]+ratio[2])))
+
+    city_interaction_dir = INTERACTION_DIR + CITY_NAME_ABBR[city] + "/"
+    make_dir(INTERACTION_DIR)
+    make_dir(city_interaction_dir)
+    train_df.to_csv(city_interaction_dir + "train.csv", index=False)
+    test_df.to_csv(city_interaction_dir + "test.csv", index=False)
+    valid_df.to_csv(city_interaction_dir + "valid.csv", index=False)
+
+    print("\t[--gen_data] {}: Finished! Data generated at {}".format(city, city_interaction_dir))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--preprocess", action="store_true", 
-            help="Preprocess business, user-business interaction, and users")
-    parser.add_argument("--city_cluster", action="store_true", 
-            help="whether do city clustering")
-    parser.add_argument("--gen_data", action="store_true", 
-            help="whether generate dataset from u/b interactions")
+    parser.add_argument("task",
+            help="Task to do, should be one of `preprocess`, `city_cluster`, or `gen_data`")
+
+    make_dir(CITY_DIR)
+
+    # replaced following arguments by task
+    # parser.add_argument("--preprocess", action="store_true", 
+    #         help="Preprocess business, user-business interaction, and users")
+    # parser.add_argument("--city_cluster", action="store_true", 
+    #         help="whether do city clustering")
+    # parser.add_argument("--gen_data", action="store_true", 
+    #         help="whether generate dataset from u/b interactions")
+
     parser.add_argument("--business_min_count", type=int, nargs="?", 
             help="Business appearance has to be greater than the min count to be used.")
     parser.add_argument("--user_min_count", type=int, nargs="?", 
             help="User appearance has to be greater than the min count to be used.")
     parser.add_argument("--ttv_ratio", 
-            help="Ratio of train, test, and validation sets")
+            help="Ratio of train, test, and validation sets. Format (100:20:20)")
     args = parser.parse_args()
 
-    if args.preprocess:
-        make_dir(PARSE_ROOT_DIR)
-        make_dir(PARSE_DIR)
+    make_dir(PARSE_ROOT_DIR)
+    make_dir(PARSE_YELP_DIR)
+
+    if args.task == "preprocess":
+        make_dir(PREPROCESS_DIR)
 
         print("[--preprocess] parsing businesses/interactions/users from scratch ...")
         parse_business()
@@ -345,21 +374,24 @@ if __name__ == "__main__":
         parse_user()
         print("[--preprocess] done!")
 
-    if args.city_cluster:
+    elif args.task == "city_cluster":
 
         print("[--city_cluster] running city cluster")
         assert args.business_min_count, "business_min_count should not be empty"
         assert args.user_min_count, "user_min_count should not be empty"
 
+        make_dir(CITY_DIR)
+
         print("\t[loading] processed files after preprocessing")
-        user_profile = load_pkl(PARSE_DIR + "user_profile.pkl")
-        business_profile = load_pkl(PARSE_DIR + "business_profile.pkl")
-        city_business = load_pkl(PARSE_DIR + "city_business.pkl")
-        ub_interactions = pd.read_csv(PARSE_DIR + "user_business_interact.csv")
-        user_friendships = load_pkl(PARSE_DIR + "user_friend.pkl")
+        user_profile = load_pkl(PREPROCESS_DIR + "user_profile.pkl")
+        business_profile = load_pkl(PREPROCESS_DIR + "business_profile.pkl")
+        city_business = load_pkl(PREPROCESS_DIR + "city_business.pkl")
+        ub_interactions = pd.read_csv(PREPROCESS_DIR + "user_business_interact.csv")
+        user_friendships = load_pkl(PREPROCESS_DIR + "user_friend.pkl")
 
         for city in CANDIDATE_CITY:
-            print("\t[running] city clustering on " + city)
+            make_dir(CITY_DIR + CITY_NAME_ABBR[city])
+            print("\trunning city clustering on " + city)
             city_clustering(city=city,
                             user_min_count=args.user_min_count,
                             business_min_count=args.business_min_count,
@@ -369,11 +401,16 @@ if __name__ == "__main__":
                             user_friendships=user_friendships)
         print("[--city_cluster] city_cluster done!")
 
-    if args.gen_data:
+    elif args.task == "gen_data":
         assert args.ttv_ratio, "Train/Test/Validation ratio should not be empty!"
         ttv_ratio = tuple([int(x) for x in args.ttv_ratio.split(":")])
-        print("building implicit graph from cities ...")
+        print("[--gen_data] Building implicit graph from cities ...")
         for city in CANDIDATE_CITY:
             generate_data(city, ttv_ratio)
+
+        print("[--gen_data] Done!")
+
+    else:
+        raise ValueError("Invalid --task parameter given, check out -h for valid options")
 
 

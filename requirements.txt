@@ -3,3 +3,5 @@ argparse
 pandas
 numpy
 sklearn
+ipython
+

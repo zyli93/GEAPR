@@ -38,6 +38,7 @@ def create_dir(dataset):
         os.mkdir(perf_dir)
 
 def make_dir(path):
+    """make a director"""
     if not os.path.isdir(path):
         os.mkdir(path)
 
