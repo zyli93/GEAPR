@@ -8,7 +8,7 @@ There's nothing in this one now.
 
 ### Yelp dataset
 
-#### 
+#### Steps
 1. Run preprocessing on yelp dataset
 ```bash
 $ python src/prep_yelp.py preprocess
@@ -41,6 +41,6 @@ $ python src/prep_yelp.py gen_data --ttv_ratio=10:1:1
 
 
 
-##Run `dugrilp`
+## Run `dugrilp`
 
 
