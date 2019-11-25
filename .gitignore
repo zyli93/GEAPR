@@ -2,6 +2,9 @@
 # Pycharm related
 .idea/
 
+# vim related
+*.swp
+
 # Dataset files
 data/
 yelp_dataset.tar

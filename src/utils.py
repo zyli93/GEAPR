@@ -20,22 +20,36 @@ ACT_FUNC = {
     "lrelu": tf.nn.leaky_relu
 }
 
+MODEL_DIR = "./model/"
 
 def create_dir(dataset):
+
+    if not os.path.isdir(MODEL_DIR):
+        print("\t[create_dir] creating MODEL_DIR")
+        os.mkdir(MODEL_DIR)
+
+    if not os.path.isdir(MODEL_DIR + dataset):
+        print("\t[create_dir] creating dataset dir")
+        os.mkdir(MODEL_DIR + dataset)
+
     # create logs file
-    log_dir = os.getcwd() + "/logs/{}/".format(dataset)
-    if os.path.isdir(log_dir):
+    log_dir = MODEL_DIR + "{}/logs/".format(dataset)
+    if not os.path.isdir(log_dir):
+        print("\t[create_dir] create log dir")
         os.mkdir(log_dir)
 
     # create checkpoints file
-    ckpt_dir = os.getcwd() + "/checkpoints/{}/".format(dataset)
-    if os.path.isdir(ckpt_dir):
+    ckpt_dir = MODEL_DIR + "{}/checkpoints/".format(dataset)
+    if not os.path.isdir(ckpt_dir):
+        print("\t[create_dir] create ckpt dir")
         os.mkdir(ckpt_dir)
 
     # create performance file
-    perf_dir = os.getcwd() + "/performance/{}/".format(dataset)
-    if os.path.isdir(perf_dir):
+    perf_dir = MODEL_DIR + "{}/performance/".format(dataset)
+    if not os.path.isdir(perf_dir):
+        print("\t[create_dir] create performance dir")
         os.mkdir(perf_dir)
+
 
 def make_dir(path):
     """make a director"""

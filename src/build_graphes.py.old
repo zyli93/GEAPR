@@ -5,6 +5,9 @@
     This file generates a few more parsed graph archives
         - user structural context graph (usc_graph)
         - user friendship graph (uf_graph)
+
+        - u.adj.npz, i.adj.npz (user/item adjacency matrix)
+        - u.nbr.pkl, i.nbr.pkl (user/item neighbor pickle)
 """
 
 import os
@@ -23,6 +26,60 @@ from utils import load_pkl, dump_pkl
 
 GRAPH_DIR = "./data/graph/"
 PARSE_DIR = "./data/parse/"
+
+
+def build_implicit_user_adj(dataset, threshold):
+    # load data
+    if dataset == "ml":
+        u_mat = load_npz(PARSE_DIR + "ml/u.npz")
+    elif dataset == "yelp/lasvegas":
+        raise NotImplementedError()
+    else:
+        raise NotImplementedError("other dataset not implemented yet")
+
+    # normalize over each user
+    u_norm = normalize(u_mat, axis=1, norm="l1")
+    
+    # build similarity matrix
+    u_sim = u_norm.dot(u_norm.T)
+
+    # two ways: filter out or boolean
+    # TODO: what are the two ways
+    # u_sim[u_sim <= threshold] = 0  # empty out lower edges
+    # u_adj = u_sim
+    
+    u_adj = (u_sim > threshold).astype(int)  # to 0 and 1
+    
+    return u_adj
+
+# ===========================
+#     Func for item graphs
+# ===========================
+
+# TODO: what is this? designed for MovieLens only?
+def build_item_adj_ml(threshold, w):
+    # ** whether to consider genre information **
+    # process movie genre
+    mg_mat = load_npz(PARSE_DIR + "ml/mg.npz")
+    mg_norm = normalize(mg_mat, axis=1, norm="l1")
+    mg_sim = mg_norm.dot(mg_norm.T)
+
+    # process movie tags
+    mt_mat = load_npz(PARSE_DIR + "ml/mt.npz")
+    mt_norm = normalize(mt_mat, axis=1, norm="l1")
+    mt_sim = mt_norm.dot(mt_norm.T)
+
+    # build simiarity matrix
+    m_sim = w * mg_sim + (1 - w) * mt_sim
+
+    # two ways as well
+    # m_sim[m_sim <= threshold] = 0  # empty out
+    # ower edges
+    # m_adj = m_sim
+
+    m_adj = (m_sim > threshold).astype(int)  # to 0 and 1
+
+    return m_adj
 
 
 def build_augment_adj(adj_mat, rwr_order, rwr_rate):
@@ -97,10 +154,10 @@ def load_user_friend(dir_):
         dir_ - directory to the processed files
 
     Return:
-        uf_dict - user friendship matrix created for neighbors
         uf_graph - [csr_sparse matrix] adjacency matrix of uf_graph
     """
-    load_pkl(dir_ + "city_user_friend.pkl")
+    with open(dir_ + "city_user_friend.pkl", "rb") as fin:
+        uf_dict = pickle.load(fin)
 
     n_users = len(uf_dict)
     print("\t[Building graph] number of users: {}".format(n_users))
@@ -111,18 +168,17 @@ def load_user_friend(dir_):
     data = [1] * len(row)
     uf_graph = csr_matrix((data, (row, col)), shape=(n_users, n_users))
 
-    return uf_dict, uf_graph
+    return uf_graph
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", help="The dataset to work on. For yelp, use `yelp-lv`")
     parser.add_argument("--yelp_city", help="ABBRVs. of cities of yelp. Only useful when --dataset=yelp")
-    # parser.add_argument("--u_threshold", type=float, help="user similarity threshold to build graph")
-    # parser.add_argument("--i_threshold", type=float, help="item similarity threshold to build graph")
+    parser.add_argument("--u_threshold", type=float, help="user similarity threshold to build graph")
+    parser.add_argument("--i_threshold", type=float, help="item similarity threshold to build graph")
     parser.add_argument("--rwr_order", type=int, help="order of random walk with restart.")
     parser.add_argument("--rwr_constant", type=float, help="constant of random walk with restart.")
-    parser.add_argument("--use_sparse_mat", type=bool, help="whether to use sparse matrix")
     args = parser.parse_args()
 
     # TODO: what is `i_threshold`
@@ -146,21 +202,55 @@ if __name__ == "__main__":
     make_dir_rec(output)
 
     # NOTES: not building the item side thing for now
+    # print("[Building graphes] building user frienship matrix ...")
+    # u_adj = build_implicit_user_adj(args.dataset, args.u_threshold)
+
+    # if dataset == "ml":
+    #     print("building item adjacency matrix ...")
+    #     i_adj = build_item_adj_ml(i_threshold, ml_weight)
+    # else:
+    #     raise NotImplementedError("Other functions not implemented.")
 
     # load user friend matrix
     print("\t[Building graphes] loading user friendship")
-    uf_dict, uf_graph = load_user_friend(input_dir)
+    uf_graph = load_user_friend(input_dir)
 
     # build augmented (RWR) adjacency matrix for u and i
-    print("\t[Building graphes] build RWR adjacency matrix ...")
-    uf_sc_graph = build_augment_adj(uf_graph, args.rwr_order, args.rwr_constant)
+    print("build RWR adjacency matrix ...")
+    # u_aug_adj = build_augment_adj(u_adj, rwr_order, rwr_c)
+    # i_aug_adj = build_augment_adj(i_adj, rwr_order, rwr_c)
 
     # save augmented (RWR) matrix
-    print("\t[Building graphes] saving user friend matrix and user structural context matrix")
-    if args.use_sparse:
-        save_npz(output_dir + "uf_graph.npz", uf_graph)
-        save_npz(output_dir + "uf_sc_graph.npz", uf_sc_graph)
-    else:
-        np.savez(output_dir + "uf_graph.npz", uf_graph)
-        np.savez(output_dir + "uf_sc_graph.npz", uf_sc_graph)
-    print("[Building graphes] finished creating graphes") 
+    print("saving user and item adjacency matrix")
+    save_npz(output_dir + "u.adj.npz", u_aug_adj)
+    save_npz(output_dir + "i.adj.npz", i_aug_adj)
+
+    # create neighbors
+    print("create neighbor linked list")
+    u_nbr = build_neighbors(u_aug_adj)
+    i_nbr = build_neighbors(i_aug_adj)
+
+    # save neighbors to files
+    print("dump user and item neighbors")
+    with open(output_dir + "u.nbr.pkl", "wb") as funbr, \
+        open(output_dir + "i.nbr.pkl", "wb") as finbr:
+        pickle.dump(u_nbr, funbr)
+        pickle.dump(i_nbr, finbr)
+
+    # build second order aug adj mat on original aug adj mat
+    print("build second order neighbors")
+    u_aug_adj_2 = build_augment_adj(u_aug_adj, 1, 0)
+    i_aug_adj_2 = build_augment_adj(i_aug_adj, 1, 0)
+
+    # build second order neighbors
+    print("create second order neighbors")
+    u_nbr2 = build_neighbors(u_aug_adj_2)
+    i_nbr2 = build_neighbors(i_aug_adj_2)
+
+    # save neighbors to files
+    print("dump user and item neighbors: 2nd order")
+    with open(output_dir + "u.nbr.2nd.pkl", "wb") as funbr, \
+            open(output_dir + "i.nbr.2nd.pkl", "wb") as finbr:
+        pickle.dump(u_nbr2, funbr)
+        pickle.dump(i_nbr2, finbr)
+

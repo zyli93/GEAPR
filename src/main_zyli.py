@@ -17,28 +17,26 @@ import tensorflow as tf
 from model import UnInteRec, DugrilpGAT
 from train import trainer
 from dataloader import DataLoader
-from utils import *
+from utils import create_dirs
 
 flags = tf.app.flags
 
 # Run time
 flags.DEFINE_integer('epoch', 300, 'Number of Epochs.')
 flags.DEFINE_integer('batch_size', 64, 'Number of training instance per batch.')
-flags.DEFINE_string('dataset', 'example', 'Name of the dataset.')
+flags.DEFINE_string('dataset', 'yelp', 'Input dataset name')
 flags.DEFINE_integer('save_n_iter', 100, 'Number of iterations per save.')
 flags.DEFINE_integer('log_n_iter', 200, "Number of iterations per log.")
-flags.DEFINE_string('reshuffle', False, "Re-shuffle training data.")
+flags.DEFINE_string('reshuffle', False, "Re-shuffle training data.")  # TODO
 
-# Optimization
+# Hyperparam - Optimization
 flags.DEFINE_float('learning_rate', 0.001, 'Learning Rate.')
 flags.DEFINE_float('regularization_weight', 0.01, 'Weight of L2 Regularizations.')
-
-# Parameter Space
-flags.DEFINE_integer('embedding_size', 64, 'Hidden Embedding Size.')
-
-# Hyper-param
-flags.DEFINE_string('trial_id', '001', 'The ID of the current run.')
 flags.DEFINE_integer('random_seed', 723, 'Random Seed.')
+
+# Hyperparam - Model
+flags.DEFINE_integer('embedding_size', 64, 'Hidden Embedding Size.')
+flags.DEFINE_string('trial_id', '001', 'The ID of the current run.')
 flags.DEFINE_float("tao", 0.2, "Temperature constant!")
 flags.DEFINE_integer("user_n_ctrd", 32, "Number of centroids for users.")
 flags.DEFINE_integer("item_n_ctrd", 64, "Number of interest for items.")
@@ -50,12 +48,12 @@ flags.DEFINE_float("corr_weight", 0.1, "Correlation cost weight")
 flags.DEFINE_string("ctrd_act_func", "relu", "Activation function for centroid.")  # "relu", "tanh", "lrelu"
 
 # Auto Encoder
-flags.DEFINE_string('ae_user_enc_layers', "", "User side AE structure.")
-flags.DEFINE_string('ae_item_enc_layers', "", "Item size AE structure.")
-flags.DEFINE_float('ae_beta_value', 2, "", "Beta value for SDNE AutoEncoder.") # TODO: figure out what's a good beta
-flags.DEFINE_float('ae_reg_weight', 0.01, 'The weight of L2-regularization in AE.')
-flags.DEFINE_float("ae_weight", 0.1, "Auto encoder reconstruct error weight.")
-flags.DEFINE_integer("sdne_nbr_size", 5, "Neighbor size of SDNE.")  # TODO: find a good neighbor size
+# flags.DEFINE_string('ae_user_enc_layers', "", "User side AE structure.")
+# flags.DEFINE_string('ae_item_enc_layers', "", "Item size AE structure.")
+# flags.DEFINE_float('ae_beta_value', 2, "", "Beta value for SDNE AutoEncoder.") # TODO: figure out what's a good beta
+# flags.DEFINE_float('ae_reg_weight', 0.01, 'The weight of L2-regularization in AE.')
+# flags.DEFINE_float("ae_weight", 0.1, "Auto encoder reconstruct error weight.")
+# flags.DEFINE_integer("sdne_nbr_size", 5, "Neighbor size of SDNE.")  # TODO: find a good neighbor size
 
 # Graph Attention Network
 # TODO
@@ -69,7 +67,7 @@ def main(argv):
     check_flags(FLAGS)
 
     # create directories
-    create_dir(FLAGS.dataset)
+    create_dirs(FLAGS.dataset)
 
     # data loader
     print("loading dataset ...")

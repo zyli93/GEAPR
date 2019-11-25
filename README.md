@@ -1,8 +1,15 @@
-# dugrilp
+# Interpretable Recommender System with Frienship Networks
 
-Dual Graph Interpretable Link Prediction
+Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
 There's nothing in this one now.
+
+## TODO
+1. `src/build_graphes.py` has been changed a lot. Need to filter out unused functions.
+2. `src/build_graphes.py` fix all the TODO terms.
+
+## Notes
+1. `src/build_graphes.py.old` is a file backuped on Nov.24.
 
 ## Preprocessing
 

@@ -16,13 +16,26 @@ except:
     import pickle
 
 
+# Global variables
+
+YELP_DIR = "./data/parse/yelp/"
+YELP_CITY = YELP_DIR + "citycluster/"
+YELP_INTERACTION = YELP_DIR + "interactions/"
+
 class DataLoader:
     def __init__(self, flags):
         """DataLoader for loading two types of data
 
+        1. load user-friendship graph (uf_graph)
+        2. load user-structure-context graph (usc_graph)
+        3. load user-item interactions (dataset)
+
         :param flags: contains all the flags
+
         """
         self.F = flags
+
+        self.
 
         self.adj_dir = os.path.join(os.getcwd(), "graph", self.F.dataset)
         self.parse_dir = os.path.join(os.getcwd(), "parse", self.F.dataset)
