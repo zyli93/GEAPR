@@ -56,6 +56,11 @@ def make_dir(path):
     if not os.path.isdir(path):
         os.mkdir(path)
 
+def make_dir_rec(path):
+    """make a directory recursively, okay if exist"""
+    if not os.path.isdir(path):
+        os.makedirs(path, exist_ok=True)
+
 
 def parse_ae_layers(struct_str):
     # parse layers size:

@@ -5,8 +5,8 @@ Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 There's nothing in this one now.
 
 ## TODO
-1. `src/build_graphes.py` has been changed a lot. Need to filter out unused functions.
-2. `src/build_graphes.py` fix all the TODO terms.
+1. `src/build_graphs.py` has been changed a lot. Need to filter out unused functions.
+2. tune hyperparameters from `src/build_graphs.py`: `rwr_order` and `rwr_constant`.
 
 ## Notes
 1. `src/build_graphes.py.old` is a file backuped on Nov.24.
@@ -53,6 +53,19 @@ In `./data/parse/yelp`, you would be able to see three folders:
 
 
 Among them, `citycluster` and `interactions` will be used in the future procedures.
+
+
+## Building Structural Graphes
+
+We are using structural context graphs for later computations. 
+Structural context graphs can be generated beforehand.
+Here's an example to generate neighbor graphs and structural context graphs:
+```bash
+$ python src/build_graphs.py --dataset=yelp --yelp_city=lv --rwr_order=3 --rwr_constant 0.05 --use_sparse_mat=True
+```
+Here are two tunable hyperparameters:
+* `rwr_order`: choose between 2 and 3, number > 3 will generate a much denser graph. Defult is 3.
+* `rwr_constant`: rate of re-starting. Default is 0.05.
 
 
 ## Run `dugrilp`
