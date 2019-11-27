@@ -2,9 +2,13 @@
     Data loader file
 
     @author: Zeyu Li <zyli@cs.ucla.edu>
+
+    TODO:
+        only implemented yelp related datasets
 """
 
 import os
+
 import numpy as np
 import pandas as pd
 from scipy.sparse import *
@@ -16,11 +20,13 @@ except:
     import pickle
 
 
-# Global variables
 
-YELP_DIR = "./data/parse/yelp/"
-YELP_CITY = YELP_DIR + "citycluster/"
-YELP_INTERACTION = YELP_DIR + "interactions/"
+
+# Global variables
+YELP_PARSE = "./data/parse/yelp/"
+YELP_CITY = YELP_PARSE + "citycluster/"
+YELP_INTERACTION = YELP_PARSE + "interactions/"
+YELP_GRAPH = "./data/graph/yelp/"
 
 class DataLoader:
     def __init__(self, flags):
@@ -35,7 +41,15 @@ class DataLoader:
         """
         self.F = flags
 
-        self.
+        if self.F.dataset == "yelp":
+            interaction_dir = YELP_INTERACTION + self.F.yelp_city + "/"
+            city_dir = YELP_CITY + self.F.yelp_city + "/"
+            graph_dir = YELP_GRAPH + self.F.yelp_city + "/"
+
+            self.uf_graph =
+            self.usc_graph = 
+            self.uf_dict = 
+
 
         self.adj_dir = os.path.join(os.getcwd(), "graph", self.F.dataset)
         self.parse_dir = os.path.join(os.getcwd(), "parse", self.F.dataset)

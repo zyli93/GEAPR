@@ -1,7 +1,7 @@
-#! /usr/bin/python3
+#!/usr/bin/python3
 
 """
-    Utils functions
+    Utils functions for irsfn
 
     @authors: Zeyu Li <zyli@cs.ucla.edu>
 """
@@ -20,35 +20,23 @@ ACT_FUNC = {
     "lrelu": tf.nn.leaky_relu
 }
 
-MODEL_DIR = "./model/"
+OUTPUT_DIR = "./output/"
 
-def create_dir(dataset):
+"""TODO: delete later
+output - trial
+            - ckpt
+            - performance
+"""
 
-    if not os.path.isdir(MODEL_DIR):
-        print("\t[create_dir] creating MODEL_DIR")
-        os.mkdir(MODEL_DIR)
+def create_dirs(f):
+    """create directories
 
-    if not os.path.isdir(MODEL_DIR + dataset):
-        print("\t[create_dir] creating dataset dir")
-        os.mkdir(MODEL_DIR + dataset)
-
-    # create logs file
-    log_dir = MODEL_DIR + "{}/logs/".format(dataset)
-    if not os.path.isdir(log_dir):
-        print("\t[create_dir] create log dir")
-        os.mkdir(log_dir)
-
-    # create checkpoints file
-    ckpt_dir = MODEL_DIR + "{}/checkpoints/".format(dataset)
-    if not os.path.isdir(ckpt_dir):
-        print("\t[create_dir] create ckpt dir")
-        os.mkdir(ckpt_dir)
-
-    # create performance file
-    perf_dir = MODEL_DIR + "{}/performance/".format(dataset)
-    if not os.path.isdir(perf_dir):
-        print("\t[create_dir] create performance dir")
-        os.mkdir(perf_dir)
+    create `output` directory if necessary
+    create `ckpt` and `performance` directory if needed
+    """
+    make_dir(OUTPUT_DIR)
+    make_dir_rec(OUTPUT_DIR + "/{}/ckpt/".format(f.trial_id))
+    make_dir_rec(OUTPUT_DIR + "/{}/performance/".format(f.trial_id))
 
 
 def make_dir(path):
@@ -63,33 +51,18 @@ def make_dir_rec(path):
 
 
 def parse_ae_layers(struct_str):
+    """[Not used]"""
     # parse layers size:
-    #   E.G. "100,100,4" to [100, 100, 4]
-
-    if struct_str == "":
-        raise ValueError("Must fill in user/item AE layers!")
-
-    return [int(x) for x in struct_str.strip().split(",")]
+    #   E.G. "100-100-4" to [100, 100, 4]
+    assert len(struct_str) > 0, "Invalid MLP layers"
+    return [int(x) for x in struct_str.strip().split("-")]
 
 
-def check_flags(flags):
-    if flags.emb_model not in ['sdne', 'gat']:
-        raise ValueError("Invalid argument `emb_model`."
-                         "Should be in `ae` or `gat`.")
-
-    if flags.dataset not in ["ml", "so", "yp"]:
-        raise ValueError("Invalid argument `dataset`."
-                         "Should be in `ml`, `so`, or `yp`.")
-
-    if flags.dis_metrics not in ["cos", "log"]:
-        raise ValueError("Invalid argument `dis_metrics`."
-                         "Should be in `cos`, `log`.")
-
-    if flags.ctrd_act_func not in ACT_FUNC:
-        raise ValueError("Invalid argument `ctrd_act_func`"
-                         "Should be in `tanh`, `relu`, and `lrelu`.")
-
-    # TODO: check correctness check
+def check_flags(f):
+    assert f.dataset in ["ml", "yelp"], "`dataset` should be `ml` or `yelp`"
+    assert f.corr_metric in ["cos", "log"], "`corr_metric` should be `cos` or `log`"
+    assert f.ctrd_act_func in ACT_FUNC, "`ctrd_act_func` should be `tanh`, `relu`, and `lrelu`"
+    f.mlp_layers = [int(x) for x in f.mlp_layers]
 
 
 def get_activation_func(func_name):

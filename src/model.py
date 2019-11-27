@@ -1,22 +1,17 @@
-"""
-    Model file
+"""Model for irsfn
 
-    @author: Zeyu Li <zyli@cs.ucla.edu>
+    @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
-    TODO: note that labels should be of integer type
-
-    TODO List:
-        1. implement DugrilpSDNE
-        2. implement DugrilpGAT
-        3. integrate RWR to module build graph
+    TODO:
+        note that labels should be of integer type
         4. (test) PCA decomposition for GAT
 """
 
 import tensorflow as tf
-from modules import autoencoder, centroid, attnnet
+from modules import autoencoder, centroid
 
 
-class UnInteRec:
+class IRSModel:
     def __init__(self
                  , flags
                  , ae_layers=None):
