@@ -8,7 +8,6 @@
 """
 
 import os
-
 import numpy as np
 import pandas as pd
 from scipy.sparse import *
@@ -19,7 +18,7 @@ try:
 except:
     import pickle
 
-
+from utils import *
 
 
 # Global variables
@@ -46,13 +45,20 @@ class DataLoader:
             city_dir = YELP_CITY + self.F.yelp_city + "/"
             graph_dir = YELP_GRAPH + self.F.yelp_city + "/"
 
-            self.uf_graph =
-            self.usc_graph = 
-            self.uf_dict = 
+            print("[Data loader] loading friendship and strc-ctx graphs and user-friendship dict")
+            self.uf_graph = load_npz(graph_dir + "uf_graph.npz")
+            self.usc_graph = load_npz(graph_dir + "uf_sc_graph.npz")
+            self.uf_dict = load_pkl(city_dir + "city_user_friend.pkl")
 
+            print("[Data loader] loading train, test, and dev data")
+            self.train_data = pd.read_csv(interaction_dir + "train.csv")
+            self.test_data = pd.read_csv(interaction_dir + "test.csv")
+            self.dev_data = pd.read_csv(interaction_dir + "dev.csv")
 
-        self.adj_dir = os.path.join(os.getcwd(), "graph", self.F.dataset)
-        self.parse_dir = os.path.join(os.getcwd(), "parse", self.F.dataset)
+            # TODO: train/test/defv are NOT shuffled yet!
+            # TODO: change the order of business/label/user
+        else:
+            raise NotImplementedError("now only support yelp")
 
         self.batch_index = 0
 
