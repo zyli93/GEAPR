@@ -41,7 +41,7 @@ try:
 except ImportError:
     import pickle
 
-from utils import dump_pkl, load_pkl
+from utils import dump_pkl
 
 # Global variables
 INPUT_DIR = "data/parse/yelp/citycluster/"
@@ -108,7 +108,8 @@ def extract_user_attr(city):
     print(df_nonzero)
 
     print("\t[user] saving dataframe to {}".format(OUTPUT_DIR))
-    df_user_profile.to_csv(OUTPUT_DIR+"{}/processed_city_user_profile.csv".format(city), index=False)
+    df_user_profile.to_csv(
+        OUTPUT_DIR+"{}/processed_city_user_profile.csv".format(city), index=False)
     dump_pkl(path=OUTPUT_DIR+"{}/processed_city_user_profile.pkl", obj=user_data_pkl)
 
     return df_nonzero
@@ -174,13 +175,12 @@ def extract_business_attr(city):
     print(df_nonzero)
 
     print("\t[business] saving dataframe to {}".format(OUTPUT_DIR))
-    df_business_profile.to_csv(OUTPUT_DIR+"{}/processed_city_business_profile.csv".format(city), index=False)
-    dump_pkl(path=OUTPUT_DIR+"{}/processed_city_business_profile.pkl".format(city), obj=business_data_pkl)
+    df_business_profile.to_csv(
+        OUTPUT_DIR+"{}/processed_city_business_profile.csv".format(city), index=False)
+    dump_pkl(OUTPUT_DIR+"{}/processed_city_business_profile.pkl".format(city), business_data_pkl)
 
     print("\t[business] saving categories dictionary")
-    dump_pkl(OUTPUT_DIR+"{}/bus_cat_idx_dict.pkl".format(city))
-    with open(OUTPUT_DIR + "{}/bus_cat_idx_dict.pkl".format(city), "wb") as fout:
-        pickle.dump(bus_cat_dicts, fout)
+    dump_pkl(OUTPUT_DIR+"{}/bus_cat_idx_dict.pkl".format(city), bus_cat_dicts)
 
     return df_nonzero
 
@@ -199,5 +199,11 @@ if __name__ == "__main__":
         print("[attribute extractor] building user attributes {}".format(c))
         extract_user_attr(c)
 
+        print("[attribute extractor] attribute to discrete values user")
+        # TODO 
+
         print("[attribute extractor] building business attributes {}".format(c))
         extract_business_attr(c)
+
+        print("[attribute extractor] attribute to discrete values business")
+        # TODO 

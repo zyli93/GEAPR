@@ -28,12 +28,13 @@ import tensorflow as tf
 from model import IRSModel
 from train import trainer
 from dataloader import DataLoader
-# from utils import *
+from utils import check_flags, create_dirs
 
 
 flags = tf.app.flags
 
 # Run time
+flags.DEFINE_bool("is_training", True, "The flag to run training or evaluation.")
 flags.DEFINE_string('trial_id', '001', 'The ID of the current run.')
 flags.DEFINE_integer('epoch', 300, 'Number of Epochs.')
 flags.DEFINE_integer('batch_size', 64, 'Number of training instance per batch.')
@@ -56,12 +57,11 @@ flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
 flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
 
 # Model option
-flags.DEFINE_string("corr_metric", "cos", "Correlation metrics.")  # "cos", "log"  # TODO: what is corr_mtric
+flags.DEFINE_string("corr_metric", "cos", "Correlation metrics for centroids.")  # "cos", "log"
 flags.DEFINE_float("corr_weight", 0.1, "Correlation cost weight")
-flags.DEFINE_string("ctrd_act_func", "relu", "Activation function for centroid.")  # "relu", "tanh", "lrelu"
 
 # MLP Encoder
-flags.DEFINE_list('mlp_layers', None, "[comma sep. list] Structural context encoder layers.")  
+flags.DEFINE_list('mlp_layers', None, "[comma sep. list] Structural context encoder layers.")
 # flags.DEFINE_string('ae_item_enc_layers', "", "Item size AE structure.")
 # flags.DEFINE_float("ae_weight", 0.1, "Auto encoder reconstruct error weight.")
 
@@ -70,27 +70,30 @@ flags.DEFINE_list('mlp_layers', None, "[comma sep. list] Structural context enco
 
 FLAGS = flags.FLAGS
 
-def main(argv):
+def main():
+    """entry of training or evaluation"""
 
     # check FLAGS correctness and directories
     check_flags(FLAGS)
     create_dirs(FLAGS)
 
-    print(FLAGS.mlp_layers)
-
     # data loader
     print("[IRS] loading dataset ...")
-    dl = DataLoader(flags=FLAGS)
+    dataloader = DataLoader(flags=FLAGS)
 
     # build graph
     print("[IRS] creating model and building graph ...")
-    # model = IRSModel(flags=FLAGS, ae_layers=ae_layers)
+    model = IRSModel(flags=FLAGS)
 
     # run trainer, evaluation included
-    print("[IRS] start training & evaluation ...")
-    # trainer(flags=FLAGS, model=model, data_loader=dl)
+    if FLAGS.is_training:
+        print("[IRS] start running training ...")
+        trainer(flags=FLAGS, model=model, dataloader=dataloader)
+    else:
+        print("[IRS] start running evaluation ...")
+        raise NotImplementedError("evaluation not implemented")
+    
 
 
 if __name__ == '__main__':
     tf.app.run()
-

@@ -1,5 +1,4 @@
 #! /usr/bin/python3
-
 """
     Trainer file
 
@@ -11,34 +10,25 @@
 
 import os
 import tensorflow as tf
-from utils import build_msg
+from utils import build_msg, cr
 
 
-def trainer(flags
-            , model
-            , data_loader):
-
+def train(flags, model, dataloader):
     """ Trainer function
-
-    :param model:
-    :param data_loader:
-    :param flags: the configurations
+    Args:
+        flags - container of all settings
+        model - the model we use
+        dataloader - the data loader providing all input data
     """
 
     F = flags
-    logdir = os.path.join(os.getcwd(), "/checkpoints", F.dataset, F.trial_id)
-    perfdir = os.path.join(os.getcwd(), "/performance", F.dataset)
+    ckpt_dir = "./ckpt/{}_{}/".format(F.trial_id, F.dataset)
+    perf_file = "./performance/{}.perf".format(F.trial_id)
 
-    # ==========================
-    #           Saver
-    # ==========================
-
+    # === Saver ===
     saver = tf.train.Saver(max_to_keep=10)
 
-    # =============================
-    #       Configurations
-    # =============================
-
+    # === Configurations ===
     config = tf.ConfigProto(
         allow_soft_placement=True
         # , log_device_placement=True
@@ -46,10 +36,7 @@ def trainer(flags
     config.gpu_options.allow_growth = True
     config.gpu_options.per_process_gpu_memory_fraction = 0.8
 
-    # ==================
-    #       Run!!!
-    # ==================
-
+    # === Run training ===
     print("\n========\nID:{}\n========\n".format(F.trial_id))
 
     # training
@@ -60,11 +47,14 @@ def trainer(flags
         sess.run(tf.local_variables_initializer())
         sess.run(tf.global_variables_initializer())
 
+        # batch data generator
+        trn_iter = dataloader.data_batch_generator(set_="train")
+
         # run epochs
         for epoch in range(F.epoch):
             data_loader.has_next = True
 
-            while data_loader.has_next:
+            while trn_iter.has_next:
 
                 # get batch
                 bU, bI, bUn, bIn = data_loader.generate_batch()
@@ -131,10 +121,11 @@ def trainer(flags
     print("Training finished!")
 
 
-def evaluate(model
-             , sess
-             , epoch
-             , data_loader):
+def validation(model, sess, epoch, data_loader):
+    """run validation"""
+
+
+def evaluate(model, data_loader):
     """ Evaluation function
 
     Args:
