@@ -7,6 +7,7 @@ There's nothing in this one now.
 ## TODO
 1. `src/build_graphs.py` has been changed a lot. Need to filter out unused functions.
 2. tune hyperparameters from `src/build_graphs.py`: `rwr_order` and `rwr_constant`.
+3. `src/main_zyli.py` handle `TODO`.
 
 ## Notes
 1. `src/build_graphes.py.old` is a file backuped on Nov.24.
