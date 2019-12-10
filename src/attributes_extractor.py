@@ -20,11 +20,11 @@
             3.1 parse diff categories
             3.2 count cat coverage
             3.3 other attributes:
-                - longitude ?
-                - latitude ?
+                - longitude
+                - latitude
                 - stars
                 - review count
-                - [isn't there a register time?]
+                - name
         4. install user/business data features in table
 
 
@@ -40,6 +40,8 @@ try:
     import _pickle as pickle
 except ImportError:
     import pickle
+
+from utils import dump_pkl, load_pkl
 
 # Global variables
 INPUT_DIR = "data/parse/yelp/citycluster/"
@@ -71,10 +73,11 @@ def extract_user_attr(city):
     with open(INPUT_DIR + "{}/city_user_profile.pkl".format(city), "rb") as fin:
         user_profile = pickle.load(fin)
 
-    user_data = []
+    user_data_csv = []
+    user_data_pkl = {}
 
     # process users, NOTE: user new index starts with 1
-    for _, prof_dict in user_profile.items():
+    for uid, prof_dict in user_profile.items():
         # --- create feature area ---
         # after checking, each user has all attributes, review_count is non-zero
         tmp_entry = dict()
@@ -92,20 +95,21 @@ def extract_user_attr(city):
         tmp_entry['yelping_years'] = delta_time.days // 365
         # --- end create feature area ---
 
-        user_data.append(tmp_entry)
+        user_data_csv.append(tmp_entry)
+        user_data_pkl[uid] = tmp_entry
 
     # create dataframe
-    df_user_profile = pd.DataFrame(user_data)
+    df_user_profile = pd.DataFrame(user_data_csv)
 
     # non-zero count attributes
-    df_nonzero = df_user_profile.fillna(0).astype(bool).sum(axis=1)
+    df_nonzero = df_user_profile.fillna(0).astype(bool).sum(axis=0)
     df_nonzero = df_nonzero / len(df_user_profile)
     print("\t[user] non-zero terms in `df_user_profile`")
     print(df_nonzero)
 
     print("\t[user] saving dataframe to {}".format(OUTPUT_DIR))
-    df_user_profile.to_csv(OUTPUT_DIR + "{}/processed_city_user_profile.csv".format(city),
-                           index=False)
+    df_user_profile.to_csv(OUTPUT_DIR+"{}/processed_city_user_profile.csv".format(city), index=False)
+    dump_pkl(path=OUTPUT_DIR+"{}/processed_city_user_profile.pkl", obj=user_data_pkl)
 
     return df_nonzero
 
@@ -130,12 +134,13 @@ def extract_business_attr(city):
     with open(INPUT_DIR + "{}/city_business_profile.pkl".format(city), "rb") as fin:
         business_profile = pickle.load(fin)
 
-    business_data = []
+    business_data_csv = []
+    business_data_pkl = {}
 
     bus_cat_dicts = {EMPTY_CATS: 0}
 
     # process users, NOTE: user new index starts with 1
-    for _, prof_dict in business_profile.items():
+    for bid, prof_dict in business_profile.items():
         # --- create feature area ---
         tmp_entry = dict()
         categories = prof_dict.get("categories")
@@ -156,23 +161,25 @@ def extract_business_attr(city):
         tmp_entry['latitude'] = prof_dict.get('latitude')
         # --- end create feature area ---
 
-        business_data.append(tmp_entry)
+        business_data_csv.append(tmp_entry)
+        business_data_pkl[bid] = tmp_entry
 
     # create dataframe
-    df_business_profile = pd.DataFrame(business_data)
+    df_business_profile = pd.DataFrame(business_data_csv)
 
     # non-zero
-    df_nonzero = df_business_profile.fillna(0).astype(bool).sum(axis=1)
+    df_nonzero = df_business_profile.fillna(0).astype(bool).sum(axis=0)
     df_nonzero = df_nonzero / len(df_business_profile)
     print("\t[business] non-zero terms in `df_business_profile`")
     print(df_nonzero)
 
     print("\t[business] saving dataframe to {}".format(OUTPUT_DIR))
-    df_business_profile.to_csv(OUTPUT_DIR + "{}/processed_business_user_profile.csv".format(city),
-                               index=False)
+    df_business_profile.to_csv(OUTPUT_DIR+"{}/processed_city_business_profile.csv".format(city), index=False)
+    dump_pkl(path=OUTPUT_DIR+"{}/processed_city_business_profile.pkl".format(city), obj=business_data_pkl)
 
     print("\t[business] saving categories dictionary")
-    with open(OUTPUT_DIR + "{}/bus_cat_idx_dict.pkl".format(city), "rb") as fout:
+    dump_pkl(OUTPUT_DIR+"{}/bus_cat_idx_dict.pkl".format(city))
+    with open(OUTPUT_DIR + "{}/bus_cat_idx_dict.pkl".format(city), "wb") as fout:
         pickle.dump(bus_cat_dicts, fout)
 
     return df_nonzero

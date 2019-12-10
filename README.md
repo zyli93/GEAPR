@@ -8,6 +8,8 @@ There's nothing in this one now.
 1. `src/build_graphs.py` has been changed a lot. Need to filter out unused functions.
 2. tune hyperparameters from `src/build_graphs.py`: `rwr_order` and `rwr_constant`.
 3. `src/main_zyli.py` handle `TODO`.
+4. Now that `prep_yelp.py` has been changed, we need to rerun it.
+5. Now that `attributes_extractor.py` has been changed, we need to rerun it.
 
 ## Notes
 1. `src/build_graphes.py.old` is a file backuped on Nov.24.
@@ -42,7 +44,7 @@ phx     10      10      10682      9440
 
 #### 3. Generate train, test, and validation dataset
 ```bash
-$ python src/prep_yelp.py gen_data --ttv_ratio=10:1:1
+$ python src/prep_yelp.py gen_data --ttv_ratio=10:1:1 --negative_sample_ratio=3
 ```
 
 #### 4. Find the results
@@ -67,6 +69,17 @@ $ python src/build_graphs.py --dataset=yelp --yelp_city=lv --rwr_order=3 --rwr_c
 Here are two tunable hyperparameters:
 * `rwr_order`: choose between 2 and 3, number > 3 will generate a much denser graph. Defult is 3.
 * `rwr_constant`: rate of re-starting. Default is 0.05.
+
+
+## Extracting user and item features
+
+We also need to extract features from user and item side. Just run the following commands:
+```bash
+$ python src/attributes_extractor.py [city]
+```
+This will generate `processed_city_user_profile.csv`, `processed_city_business_profile.csv`, and `bus_cat_idx_dict.pkl`
+in `data/parse/yelp/citycluster/[city]`. 
+It will also print out the percentage of empty values under each feature column.
 
 
 ## Run `dugrilp`

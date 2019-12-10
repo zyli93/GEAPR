@@ -7,18 +7,12 @@
         only implemented yelp related datasets
 """
 
-import os
 import numpy as np
 import pandas as pd
-from scipy.sparse import *
-from sklearn.model_selection import train_test_split
+from scipy.sparse import load_npz
 
-try:
-    import _pickle as pickle
-except:
-    import pickle
-
-from utils import *
+# from utils import *
+from utils import load_pkl
 
 
 # Global variables
@@ -28,22 +22,25 @@ YELP_INTERACTION = YELP_PARSE + "interactions/"
 YELP_GRAPH = "./data/graph/yelp/"
 
 class DataLoader:
+    """docstring of DataLoader"""
     def __init__(self, flags):
         """DataLoader for loading two types of data
 
         1. load user-friendship graph (uf_graph)
         2. load user-structure-context graph (usc_graph)
         3. load user-item interactions (dataset)
+        4. load user features
+        5. load item features
 
         :param flags: contains all the flags
 
         """
-        self.F = flags
+        self.f = flags
 
-        if self.F.dataset == "yelp":
-            interaction_dir = YELP_INTERACTION + self.F.yelp_city + "/"
-            city_dir = YELP_CITY + self.F.yelp_city + "/"
-            graph_dir = YELP_GRAPH + self.F.yelp_city + "/"
+        if self.f.dataset == "yelp":
+            interaction_dir = YELP_INTERACTION + self.f.yelp_city + "/"
+            city_dir = YELP_CITY + self.f.yelp_city + "/"
+            graph_dir = YELP_GRAPH + self.f.yelp_city + "/"
 
             print("[Data loader] loading friendship and strc-ctx graphs and user-friendship dict")
             self.uf_graph = load_npz(graph_dir + "uf_graph.npz")
@@ -55,148 +52,81 @@ class DataLoader:
             self.test_data = pd.read_csv(interaction_dir + "test.csv")
             self.dev_data = pd.read_csv(interaction_dir + "dev.csv")
 
-            # TODO: train/test/defv are NOT shuffled yet!
-            # TODO: change the order of business/label/user
+            print("[Data loader] loading user/item attributes")
+            self.user_attr = load_pkl(city_dir + "processed_city_business_profile.pkl")
+            self.item_attr = load_pkl(city_dir + "processed_city_business_profile.pkl")
+
         else:
             raise NotImplementedError("now only support yelp")
 
         self.batch_index = 0
 
-        self.trn, self.tstX, self.tstY = self._load_review_data()
-        self.trn_size = self.trn.shape[0]
-        self.tst_size = self.tstX.shape[0]
+        self.set_to_dataset = {
+            "train": self.train_data,
+            "test": self.test_data,
+            "dev": self.dev_data
+        }
 
-        # sdne loader
-        if self.F.model_type == "sdne":
-            self.u_adj, self.i_adj, self.u_nbr, self.i_nbr = \
-                self._load_graph_data()
-
-        # gat loader
-        else:
-            self.u_emb, self.i_emb, self.u_nbr, self.i_nbr, \
-            self.u_nbr2, self.i_nbr2 = \
-                self._load_graph_data()
-
-    # ============================
-    #       internal functions
-    # ============================
-    def _load_graph_data(self):
-        """
-        load dataset
-
-        if model_type == sdne:
-            return u_adj, i_adj, u_nbr, i_nbr
-        else:
-            return u_emb, i_emb, u_nbr, i_nbr, u_nbr2, i_nbr2
-        """
-
-        with open(self.adj_dir + "/u.nbr.pkl", "rb") as fin:
-            u_nbr = pickle.load(fin)
-        with open(self.adj_dir + "/i.nbr.pkl", "rb") as fin:
-            i_nbr = pickle.load(fin)
-
-        # sdne data loader
-        if self.F.model_type == "sdne":
-            u_adj = load_npz(self.adj_dir + "/u.adj.npz")
-            i_adj = load_npz(self.adj_dir + "/i.adj.npz")
-            return u_adj, i_adj, u_nbr, i_nbr
-
-        # gat data loader
-        else:
-            # TODO: implement following two lines
-            u_init_emb = None
-            i_init_emb = None
-
-            with open(self.adj_dir + "/u.nbr.2nd.pkl", "rb") as fin:
-                u_nbr2 = pickle.load(fin)
-            with open(self.adj_dir + "/i.nbr.2nd.pkl", "rb") as fin:
-                i_nbr2 = pickle.load(fin)
-
-            return u_init_emb, i_init_emb, u_nbr, i_nbr, \
-                   u_nbr2, i_nbr2
-
-    def _load_review_data(self):
-        """Load train dataset, test dataset, test label
-        """
-        if self.F.dataset == "ml":
-            df = pd.read_csv(self.parse_dir + "rt45.csv")
-            data = df[["userId", "movieId"]].to_numpy()
-            # TODO: split train test look at other papers
-        elif self.F.dataset == " ":
-            df = None
-            # TODO: to implement
-        else:
-            df = None
-            # TODO: to implement
-
-        return trn, tst, tst_label
-
-    def _get_trn_batch_sdne(self):
-        """
-        Create training data generator
-        """
-        total_batch = self.trn_size // self.F.batch_size + 1
-        bs = self.F.batch_size
-        for batch_index in range(0, total_batch):
-            b_end = min((batch_index + 1) * bs, self.trn_size)
-            batch_ui = self.trn[batch_index * bs: b_end]
-
-            # batch_ui[0]: user id;
-            # batch_ui[1]: item id.
-            # TODO: see if separate nbr_size is needed
-            batch_u_nbr = np.array(
-                [np.random.choice(self.u_nbr[x], self.F.sdne_nbr_size)
-                 for x in batch_ui[0]])
-            batch_i_nbr = np.array(
-                [np.random.choice(self.i_nbr[x], self.F.sdne_nbr_size)
-                 for x in batch_ui[1]])
-
-            batch_u_adj = self.u_adj[batch_ui[0]]
-            batch_i_adj = self.i_adj[batch_ui[1]]
-
-            yield batch_ui, batch_u_adj, batch_i_adj, batch_u_nbr, batch_i_nbr
-
-    def _get_trn_batch_gat(self):
-        # TODO
-        raise NotImplementedError("To be implemented.")
-
-    def _get_tst_batch_sdne(self):
-        total_batch = self.tst_size // self.F.batch_size + 1
-        bs = self.F.batch_size
-        for batch_index in range(0, total_batch):
-            b_end = min((batch_index + 1) * bs, self.trn_size)
-            batch_ui = self.tstX[batch_index * bs: b_end]
-            batch_label = self.tstY[batch_index * bs: b_end]
-
-            # batch_ui[0]: user id;
-            # batch_ui[1]: item id.
-            # TODO: see if separate nbr_size is needed
-
-            batch_u_adj = self.u_adj[batch_ui[0]]
-            batch_i_adj = self.i_adj[batch_ui[1]]
-
-            yield batch_ui, batch_u_adj, batch_i_adj, batch_label
-
-    def _get_tst_batch_gat(self):
-        # TODO
-        raise NotImplementedError("To be implemented")
 
     # ============================
     #        external functions
     # ============================
 
-    def batch_generator(self):
-        if self.F.model_type == "sdne":
-            return self._get_trn_batch_sdne()
-        else:
-            return self._get_trn_batch_gat()
+    def data_batch_generator(self, set_):
+        """Create a train batch generator
+        Args:
+            set_ - `train`, `test`, or `dev`, the set to create iterator for.
 
-    def shuffle(self):
-        np.random.shuffle(self.trn)
+        Yield:
+            (iterator) of the dataset
+        """
+        data = self.set_to_dataset[set_]
+        bs = self.f.batch_size
+        total_batch = len(data) // self.f.batch_size
+        for i in range(total_batch):
+            subdf = data.iloc[i * bs: (i+1) * bs]
+            label = subdf['label'].values
+            user = subdf['user'].values
+            business = subdf['business'].values
+            yield (user, business, label)
 
 
+    def get_user_graph(self, user_array):
+        """get the graph information of users
+
+        Args:
+            user_array - numpy array of users to fetch data for
+
+        Return:
+            uf_mat - user-friendship adjacency matrix
+            usc_mat - user structural context info matrix
+            uf_nbr - user-frienship neighborhood relationships
+        """
+        uf_mat = self.uf_graph[user_array]
+        usc_mat = self.usc_graph[user_array]
+        uf_nbr = {k: self.uf_dict[k] for k in user_array}
+        return uf_subgrf, usc_subgrf, uf_subdict
 
 
+    def get_user_attributes(self, user_array):
+        """get the user attributes matrixs
+
+        Args:
+            user_array - numpy array of users to featch data for
+
+        Return:
+        """
+        # TODO
+
+    def get_business_attributes(self, business_array):
+        """get the user attributes matrixs
+
+        Args:
+            user_array - numpy array of users to featch data for
+
+        Return:
+        """
+        # TODO
 
 
 

@@ -17,12 +17,12 @@ from sklearn.model_selection import train_test_split
 
 try:
     import ujson as json
-except ImportError as e:
+except ImportError:
     import json
 
 try:
     import _pickle as pickle
-except ImportError as e:
+except ImportError:
     import pickle
 
 from utils import dump_pkl, load_pkl, make_dir
@@ -281,12 +281,14 @@ def city_clustering(city,
     print("\tCity {} parsed!".format(city))
 
 
-def generate_data(city, ratio):
+def generate_data(city, ratio, neg_ratio):
     """
     Create datasets as negative sample
 
     Arg:
-        city: the city to work on
+        city: the city to work on, (str)
+        ratio: train/test/validation ratio, (tuple)
+        neg_ratio: [# of negative samples]/[# of positive samples] (int)
 
     Store:
         train.csv - training data csv
@@ -306,7 +308,7 @@ def generate_data(city, ratio):
 
     # Sample positive samples and negative samples
     # TODO: may need to think of better sampling algorithms
-    while len(neg_samples) < pos_count:
+    while len(neg_samples) < pos_count * neg_ratio:
         sample_u = np.random.choice(users)
         sample_b = np.random.choice(businesses)
         if (sample_u, sample_b) not in pos_samples:
@@ -316,8 +318,7 @@ def generate_data(city, ratio):
     df_neg = pd.DataFrame({"user": neg_samples[0], "business": neg_samples[1], "label": 0})
 
     df_pos = ub[['user', 'business']]
-    # df_pos['label'] = 1  # use df.assign as a better way to append new columns
-    df_pos = df_pos.assign(label=1)
+    df_pos = df_pos.assign(label=1)  # use df.assign as a better way to append new columns
 
     # ratio: Train, Test, Validation
     df_data = pd.concat([df_neg, df_pos], axis=0, ignore_index=True, sort=False)
@@ -346,20 +347,14 @@ if __name__ == "__main__":
 
     make_dir(CITY_DIR)
 
-    # replaced following arguments by task
-    # parser.add_argument("--preprocess", action="store_true", 
-    #         help="Preprocess business, user-business interaction, and users")
-    # parser.add_argument("--city_cluster", action="store_true", 
-    #         help="whether do city clustering")
-    # parser.add_argument("--gen_data", action="store_true", 
-    #         help="whether generate dataset from u/b interactions")
-
-    parser.add_argument("--business_min_count", type=int, nargs="?", 
+    parser.add_argument("--business_min_count", type=int, nargs="?",
             help="Business appearance has to be greater than the min count to be used.")
-    parser.add_argument("--user_min_count", type=int, nargs="?", 
+    parser.add_argument("--user_min_count", type=int, nargs="?",
             help="User appearance has to be greater than the min count to be used.")
-    parser.add_argument("--ttv_ratio", 
+    parser.add_argument("--ttv_ratio",
             help="Ratio of train, test, and validation sets. Format (100:20:20)")
+    parser.add_argument("--negative_sample_ratio", type=int, nargs="?", default=3,
+            help="Ratio of negative samples")
     args = parser.parse_args()
 
     make_dir(PARSE_ROOT_DIR)
@@ -403,10 +398,11 @@ if __name__ == "__main__":
 
     elif args.task == "gen_data":
         assert args.ttv_ratio, "Train/Test/Validation ratio should not be empty!"
+        assert isinstance(args.negative_sample_ratio, int), "Negative sample ratio has to be integers"
         ttv_ratio = tuple([int(x) for x in args.ttv_ratio.split(":")])
         print("[--gen_data] Building implicit graph from cities ...")
         for city in CANDIDATE_CITY:
-            generate_data(city, ttv_ratio)
+            generate_data(city, ttv_ratio, args.negative_sample_ratio)
 
         print("[--gen_data] Done!")
 

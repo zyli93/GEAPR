@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 
-"""Entry point of 
+"""Entry point of the magic model
 
     == Interpretable Recommender System with Friendship Network ==
 
@@ -21,17 +21,15 @@
         1. train/test/dev ratios have been pre-set in data preparation
 """
 
-import os
-import sys
-
-import numpy as np
-from scipy.sparse import *
+# from scipy.sparse import *
+# from scipy.sparse 
 import tensorflow as tf
 
 from model import IRSModel
 from train import trainer
 from dataloader import DataLoader
-from utils import *
+# from utils import *
+
 
 flags = tf.app.flags
 
@@ -82,7 +80,7 @@ def main(argv):
 
     # data loader
     print("[IRS] loading dataset ...")
-    # dl = DataLoader(flags=FLAGS)
+    dl = DataLoader(flags=FLAGS)
 
     # build graph
     print("[IRS] creating model and building graph ...")
