@@ -123,7 +123,7 @@ def parse_business():
     dump_pkl(PREPROCESS_DIR + "city_business.pkl", city_business)
 
 
-def parse_interactions(b_min_count, u_min_count):
+def parse_interactions():
     """draw interact from `review.json` and `tips.json`.
 
     output: ub.interact.csv
@@ -137,7 +137,7 @@ def parse_interactions(b_min_count, u_min_count):
     business_profile = load_pkl(PREPROCESS_DIR + "business_profile.pkl")
 
     users, businesses, cities = [], [], []
-    timestamp = []
+    timestamps = []
 
     # create records as (user, business, city) tuple
     print("\t[parse interactions] loading review.json ...")
