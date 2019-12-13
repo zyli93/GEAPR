@@ -106,8 +106,8 @@ def parse_business():
                 continue
 
             business_id = data["business_id"]
-            # remove id, state, attributes, and hours
-            # rest fields: name, address, postal-code, latitude/longitude
+            # removed fields: id, state, attributes, and hours
+            # remained fields: fields: name, address, postal-code, latitude/longitude
             #              star, review_count, is_open
             del data["business_id"], data["state"]
             del data["attributes"], data["hours"]
@@ -123,7 +123,7 @@ def parse_business():
     dump_pkl(PREPROCESS_DIR + "city_business.pkl", city_business)
 
 
-def parse_interactions():
+def parse_interactions(b_min_count, u_min_count):
     """draw interact from `review.json` and `tips.json`.
 
     output: ub.interact.csv
@@ -137,6 +137,7 @@ def parse_interactions():
     business_profile = load_pkl(PREPROCESS_DIR + "business_profile.pkl")
 
     users, businesses, cities = [], [], []
+    timestamp = []
 
     # create records as (user, business, city) tuple
     print("\t[parse interactions] loading review.json ...")
@@ -149,16 +150,20 @@ def parse_interactions():
             users.append(data['user_id'])
             businesses.append(_bid)
             cities.append(business_profile[_bid]["city"])
+            timestamps.append(data['date'])
+
 
     interactions = pd.DataFrame({
-        'user': users, 'business': businesses, "city": cities})
+        'user': users, 'business': businesses, "city": cities,
+        "timestamp": timestamps})
 
     # remove duplicate reviews
-    print("\t[parse interactions] removing duplicates ...")
-    interactions.drop_duplicates(subset=['user', 'business'], keep="first", inplace=True)
+    # print("\t[parse interactions] removing duplicates ...")
+    # interactions.drop_duplicates(subset=['user', 'business'], keep="first", inplace=True)
 
     # remove rear businesses and users appear less than min-count times
-    # print("\tremoving entries under min_count b:{}, u:{}".format(b_min_count, u_min_count))
+    # print("\t[parse interactions] removing entries under min_count b:{}, u:{}"
+    #         .format(b_min_count, u_min_count))
     # b_counter = Counter(interactions.business)
     # u_counter = Counter(interactions.user)
     # interactions["b_count"] = interactions.business.apply(lambda x: b_counter[x])
@@ -220,7 +225,8 @@ def city_clustering(city,
     interactions_of_city = interactions[interactions["city"] == city]
 
     # remove rear businesses and users appear less than min-count times
-    print("\t\t[city_cluster] removing entries under min_count b:{}, u:{}".format(business_min_count, user_min_count))
+    print("\t\t[city_cluster] removing entries under min_count b:{}, u:{}"
+            .format(business_min_count, user_min_count))
     b_counter = Counter(interactions_of_city.business)
     u_counter = Counter(interactions_of_city.user)
 
@@ -228,10 +234,13 @@ def city_clustering(city,
     # interactions_of_city["b_count"] = interactions_of_city.business.apply(lambda x: b_counter[x])
     # interactions_of_city["u_count"] = interactions_of_city.user.apply(lambda x: u_counter[x])
 
-    interactions_of_city = interactions_of_city.assign(b_count=lambda x:x.business.map(b_counter))
-    interactions_of_city = interactions_of_city.assign(u_count=lambda x:x.user.map(u_counter))
-    interactions_of_city = interactions_of_city[(interactions_of_city.b_count >= business_min_count) &
-                                                (interactions_of_city.u_count >= user_min_count)]
+    interactions_of_city = interactions_of_city.assign(
+            b_count=lambda x:x.business.map(b_counter))
+    interactions_of_city = interactions_of_city.assign(
+            u_count=lambda x:x.user.map(u_counter))
+    interactions_of_city = interactions_of_city[
+            (interactions_of_city.b_count >= business_min_count) &
+            (interactions_of_city.u_count >= user_min_count)]
 
     user_of_city = interactions_of_city['user'].unique().tolist()  # list
     business_of_city = interactions_of_city["business"].unique().tolist()
@@ -247,7 +256,8 @@ def city_clustering(city,
 
     # create city friendships that are in the same city: city_user_friendship
     for uid in user_of_city:
-        intersection = np.intersect1d(user_of_city, user_friendships[uid], assume_unique=True).tolist()
+        intersection = np.intersect1d(
+                user_of_city, user_friendships[uid], assume_unique=True).tolist()
         city_user_friendship[city_uid2ind[uid]] = [city_uid2ind[x] for x in intersection]
 
     # create city specific user profile using new index: city_user_profile
@@ -263,8 +273,10 @@ def city_clustering(city,
         city_business_profile[city_bid2ind[bid]] = profile
 
     # user/business id to index in interactions
-    interactions_of_city['user'] = interactions_of_city['user'].apply(lambda x: city_uid2ind[x])
-    interactions_of_city['business'] = interactions_of_city['business'].apply(lambda x: city_bid2ind[x])
+    interactions_of_city['user'] = interactions_of_city['user'].apply(
+            lambda x: city_uid2ind[x])
+    interactions_of_city['business'] = interactions_of_city['business'].apply(
+            lambda x: city_bid2ind[x])
 
     # save business_list, user_friendship, and
     dump_pkl(city_dir + "businesses_of_city.pkl", business_of_city)
