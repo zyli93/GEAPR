@@ -293,14 +293,13 @@ def city_clustering(city,
     print("\tCity {} parsed!".format(city))
 
 
-def generate_data(city, ratio, neg_ratio):
+def generate_data(city, ratio, negative_sample_ratio):
     """
-    Create datasets as negative sample
+    Create training set and test set
 
     Arg:
         city: the city to work on, (str)
-        ratio: train/test/validation ratio, (tuple)
-        neg_ratio: [# of negative samples]/[# of positive samples] (int)
+        ratio: train/test ratio, (tuple)
 
     Store:
         train.csv - training data csv
@@ -352,6 +351,8 @@ def generate_data(city, ratio, neg_ratio):
 
     print("\t[--gen_data] {}: Finished! Data generated at {}".format(city, city_interaction_dir))
 
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("task",
@@ -363,10 +364,8 @@ if __name__ == "__main__":
             help="Business appearance has to be greater than the min count to be used.")
     parser.add_argument("--user_min_count", type=int, nargs="?",
             help="User appearance has to be greater than the min count to be used.")
-    parser.add_argument("--ttv_ratio",
-            help="Ratio of train, test, and validation sets. Format (100:20:20)")
-    parser.add_argument("--negative_sample_ratio", type=int, nargs="?", default=3,
-            help="Ratio of negative samples")
+    parser.add_argument("--train_test_ratio",
+            help="Ratio of train and test sets. Format (100:20)")
     args = parser.parse_args()
 
     make_dir(PARSE_ROOT_DIR)
@@ -409,12 +408,11 @@ if __name__ == "__main__":
         print("[--city_cluster] city_cluster done!")
 
     elif args.task == "gen_data":
-        assert args.ttv_ratio, "Train/Test/Validation ratio should not be empty!"
-        assert isinstance(args.negative_sample_ratio, int), "Negative sample ratio has to be integers"
-        ttv_ratio = tuple([int(x) for x in args.ttv_ratio.split(":")])
+        assert args.train_test_ratio, "Train/Test ratio should not be empty!"
+        train_test_ratio = tuple([int(x) for x in args.train_test_ratio.split(":")])
         print("[--gen_data] Building implicit graph from cities ...")
         for city in CANDIDATE_CITY:
-            generate_data(city, ttv_ratio, args.negative_sample_ratio)
+            generate_data(city, train_test_ratio)
 
         print("[--gen_data] Done!")
 
