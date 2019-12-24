@@ -293,8 +293,8 @@ def city_clustering(city,
     print("\tCity {} parsed!".format(city))
 
 
-def generate_data(city, ratio, negative_sample_ratio):
-    """
+
+def generate_data(city, ratio, negative_sample_ratio): """
     Create training set and test set
 
     Arg:
@@ -305,17 +305,14 @@ def generate_data(city, ratio, negative_sample_ratio):
         train.csv - training data csv
         test.csv - testing data.csv
         valid.csv - validation data csv
+
+    business,city,timestamp,user,b_count,u_count
     """
     ub = pd.read_csv(CITY_DIR + CITY_NAME_ABBR[city] + "/user_business_interaction.csv")
+    ub = ub[['business', 'user', 'timestamp']]
+    # ub_sg: user business interaction, sorted and grouped-by
+    ub_sg = ub.sort_values(['timestamp'], ascending=True).groupby('user')
 
-    users = ub.user.tolist()
-    businesses = ub.business.tolist()
-
-    print("\t[--gen_data] {}: Zipping positive samples ...".format(city))
-    pos_samples = set(zip(users, businesses))
-    pos_count = ub.shape[1]
-
-    neg_samples = []
 
     # Sample positive samples and negative samples
     # TODO: may need to think of better sampling algorithms
@@ -350,7 +347,6 @@ def generate_data(city, ratio, negative_sample_ratio):
     valid_df.to_csv(city_interaction_dir + "valid.csv", index=False)
 
     print("\t[--gen_data] {}: Finished! Data generated at {}".format(city, city_interaction_dir))
-
 
 
 if __name__ == "__main__":
