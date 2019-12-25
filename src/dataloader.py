@@ -24,16 +24,18 @@ class DataLoader:
             #   2. rename business to item
     """docstring of DataLoader"""
     def __init__(self, flags):
-        """DataLoader for loading two types of data
+        """DataLoader for loading two types of data: 
+            - train/test
+                - training positive instances
+                - training negative sample candidates
+                - testing instance positive sample
+            - feature information
+                - attribute information (user/item)
+                - user-friendship graph (uf_graph)
+                - user-structure-context graph (usc_graph)
 
-        1. load user-friendship graph (uf_graph)
-        2. load user-structure-context graph (usc_graph)
-        3. load user-item interactions (dataset)
-        4. load user features
-        5. load item features
-
-        :param flags: contains all the flags
-
+        Args:
+            flags - contains all the flags
         """
         self.f = flags
 

@@ -44,7 +44,11 @@ phx     10      10      10682      9440
 
 #### 3. Generate train, test, and validation dataset
 ```bash
-$ python src/prep_yelp.py gen_data --ttv_ratio=10:1:1 --negative_sample_ratio=3
+$ python src/prep_yelp.py gen_data --train_test_ratio=[train:test]
+```
+For example, if we choose to use train:test as 9:1, then we should use:
+```bash
+$ python src/prep_yelp.py gen_data --train_test_ratio=9:1
 ```
 
 #### 4. Find the results

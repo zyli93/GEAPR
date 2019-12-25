@@ -37,7 +37,9 @@ def train(flags, model, dataloader):
     config.gpu_options.per_process_gpu_memory_fraction = 0.8
 
     # === Run training ===
-    print("\n========\nID:{}\n========\n".format(F.trial_id))
+    print("\n=======================")
+    print("\t\tID:{}".format(F.trial_id))
+    print("=======================")
 
     # training
     with tf.Session(config=config) as sess, \
