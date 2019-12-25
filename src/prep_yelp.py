@@ -7,23 +7,17 @@
 """
 
 import os
-import sys
 import argparse
 from collections import Counter
 
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
 try:
     import ujson as json
 except ImportError:
     import json
-
-try:
-    import _pickle as pickle
-except ImportError:
-    import pickle
 
 from utils import dump_pkl, load_pkl, make_dir
 
@@ -37,6 +31,7 @@ PARSE_YELP_DIR = "./data/parse/yelp/"
 PREPROCESS_DIR = "./data/parse/yelp/preprocess/"
 CITY_DIR = "./data/parse/yelp/citycluster/"
 INTERACTION_DIR = "./data/parse/yelp/interactions/"
+TRAIN_TEST_DIR = "./data/parse/yelp/train_test/"
 
 CANDIDATE_CITY = ['Las Vegas', 'Toronto', 'Phoenix']
 CITY_NAME_ABBR = {"Las Vegas": "lv", "Toronto": "tor", "Phoenix": "phx"}
@@ -93,7 +88,7 @@ def parse_business():
     """
 
     city_business = {}  # dictionary of city: [business list]
-    business_profiles ={}  # dictionary of business profile
+    business_profiles = {}  # dictionary of business profile
 
     # count business by location (city and state)
     print("\t[parse_business] preprocessing all business without selecting cities ...")
@@ -157,19 +152,6 @@ def parse_interactions():
         'user': users, 'business': businesses, "city": cities,
         "timestamp": timestamps})
 
-    # remove duplicate reviews
-    # print("\t[parse interactions] removing duplicates ...")
-    # interactions.drop_duplicates(subset=['user', 'business'], keep="first", inplace=True)
-
-    # remove rear businesses and users appear less than min-count times
-    # print("\t[parse interactions] removing entries under min_count b:{}, u:{}"
-    #         .format(b_min_count, u_min_count))
-    # b_counter = Counter(interactions.business)
-    # u_counter = Counter(interactions.user)
-    # interactions["b_count"] = interactions.business.apply(lambda x: b_counter[x])
-    # interactions["u_count"] = interactions.user.apply(lambda x: u_counter[x])
-    # interactions = interactions[(interactions.b_count >= b_min_count) & (interactions.u_count >= u_min_count)]
-
     interactions.to_csv(PREPROCESS_DIR + "user_business_interact.csv", index=False)
 
     # kept user for parse user
@@ -226,7 +208,7 @@ def city_clustering(city,
 
     # remove rear businesses and users appear less than min-count times
     print("\t\t[city_cluster] removing entries under min_count b:{}, u:{}"
-            .format(business_min_count, user_min_count))
+          .format(business_min_count, user_min_count))
     b_counter = Counter(interactions_of_city.business)
     u_counter = Counter(interactions_of_city.user)
 
@@ -235,12 +217,12 @@ def city_clustering(city,
     # interactions_of_city["u_count"] = interactions_of_city.user.apply(lambda x: u_counter[x])
 
     interactions_of_city = interactions_of_city.assign(
-            b_count=lambda x:x.business.map(b_counter))
+        b_count=lambda x: x.business.map(b_counter))
     interactions_of_city = interactions_of_city.assign(
-            u_count=lambda x:x.user.map(u_counter))
+        u_count=lambda x: x.user.map(u_counter))
     interactions_of_city = interactions_of_city[
-            (interactions_of_city.b_count >= business_min_count) &
-            (interactions_of_city.u_count >= user_min_count)]
+        (interactions_of_city.b_count >= business_min_count) &
+        (interactions_of_city.u_count >= user_min_count)]
 
     user_of_city = interactions_of_city['user'].unique().tolist()  # list
     business_of_city = interactions_of_city["business"].unique().tolist()
@@ -257,7 +239,7 @@ def city_clustering(city,
     # create city friendships that are in the same city: city_user_friendship
     for uid in user_of_city:
         intersection = np.intersect1d(
-                user_of_city, user_friendships[uid], assume_unique=True).tolist()
+            user_of_city, user_friendships[uid], assume_unique=True).tolist()
         city_user_friendship[city_uid2ind[uid]] = [city_uid2ind[x] for x in intersection]
 
     # create city specific user profile using new index: city_user_profile
@@ -274,9 +256,9 @@ def city_clustering(city,
 
     # user/business id to index in interactions
     interactions_of_city['user'] = interactions_of_city['user'].apply(
-            lambda x: city_uid2ind[x])
+        lambda x: city_uid2ind[x])
     interactions_of_city['business'] = interactions_of_city['business'].apply(
-            lambda x: city_bid2ind[x])
+        lambda x: city_bid2ind[x])
 
     # save business_list, user_friendship, and
     dump_pkl(city_dir + "businesses_of_city.pkl", business_of_city)
@@ -294,59 +276,76 @@ def city_clustering(city,
 
 
 
-def generate_data(city, ratio, negative_sample_ratio): """
-    Create training set and test set
+def generate_data(city, ratio):
+    """Create training set and test set
+        - the first (ratio[0] / sum(ratio)) of users' reviews/visits ordered by
+          visit/review time are used for training
+        - the rest are used for testing
+
+    Note:
+        user_business_interaction.csv file structure:
+        `business,city,timestamp,user,b_count,u_count`
 
     Arg:
         city: the city to work on, (str)
         ratio: train/test ratio, (tuple)
 
     Store:
-        train.csv - training data csv
-        test.csv - testing data.csv
-        valid.csv - validation data csv
+        train_pos.csv - training data csv
+        train_neg.pkl - testing candidates
+        test_instances.pkl - testing instances dictionary
 
-    business,city,timestamp,user,b_count,u_count
+    Format of data structures:
+        train_pos: a data frame of positive samples
+        train_neg: dictionary of negative samples for each user
+        test_instances: positive samples (visited businesses) for testing
     """
+
     ub = pd.read_csv(CITY_DIR + CITY_NAME_ABBR[city] + "/user_business_interaction.csv")
-    ub = ub[['business', 'user', 'timestamp']]
     # ub_sg: user business interaction, sorted and grouped-by
     ub_sg = ub.sort_values(['timestamp'], ascending=True).groupby('user')
+    unique_businesses = ub['business'].unique()
+
+    split_ratio = ratio[0] / sum(ratio)
+    print("\t\tRatio: {}:{}; (Trn:Tst): {}".format(*ratio, split_ratio))
+
+    train_pos_list = []
+    train_neg = {}
+    test_instances = {}
 
 
-    # Sample positive samples and negative samples
-    # TODO: may need to think of better sampling algorithms
-    while len(neg_samples) < pos_count * neg_ratio:
-        sample_u = np.random.choice(users)
-        sample_b = np.random.choice(businesses)
-        if (sample_u, sample_b) not in pos_samples:
-            neg_samples.append((sample_u, sample_b))
+    # user and user-specfic dataframe
+    for user, user_df in tqdm(ub_sg):
+        # generate negative samples
+        pos_unique_businesses = user_df['business'].values
+        train_neg_candidates = np.setdiff1d(
+            unique_businesses, pos_unique_businesses, assume_unique=True)
+        train_neg[user] = train_neg_candidates
 
-    neg_samples = list(zip(*neg_samples))
-    df_neg = pd.DataFrame({"user": neg_samples[0], "business": neg_samples[1], "label": 0})
+        # split train and test
+        split_count = int(len(user_df) * split_ratio)
+        train_pos_sub_df = user_df.iloc[: split_count]
+        test_pos_samples = user_df.iloc[split_count: ]['business'].values
 
-    df_pos = ub[['user', 'business']]
-    df_pos = df_pos.assign(label=1)  # use df.assign as a better way to append new columns
+        # create train positive sub-dataframe
+        train_pos_sub_df = train_pos_sub_df[['user', 'business']]
+        train_pos_list.append(train_pos_sub_df)
 
-    # ratio: Train, Test, Validation
-    df_data = pd.concat([df_neg, df_pos], axis=0, ignore_index=True, sort=False)
+        # create test positive instances dictionary
+        test_instances[user] = test_pos_samples
 
-    print("\t\tRatio: {}:{}:{};".format(*ratio), end=" ")
-    print("(Trn+Val:Tst): {}; (Trn:Tst): {}"
-          .format(ratio[1]/sum(ratio), ratio[2]/(ratio[0]+ratio[2])))
+    train_pos = pd.concat(train_pos_list, axis=0, ignore_index=True, sort=False)
 
-    train_df, test_df = train_test_split(df_data, random_state=723, test_size=(ratio[1]/sum(ratio)))
-    train_df, valid_df = train_test_split(train_df, random_state=723,
-        test_size=(ratio[2]/(ratio[0]+ratio[2])))
-
-    city_interaction_dir = INTERACTION_DIR + CITY_NAME_ABBR[city] + "/"
-    make_dir(INTERACTION_DIR)
-    make_dir(city_interaction_dir)
-    train_df.to_csv(city_interaction_dir + "train.csv", index=False)
-    test_df.to_csv(city_interaction_dir + "test.csv", index=False)
-    valid_df.to_csv(city_interaction_dir + "valid.csv", index=False)
-
-    print("\t[--gen_data] {}: Finished! Data generated at {}".format(city, city_interaction_dir))
+    # save files
+    city_traintest_dir = TRAIN_TEST_DIR + CITY_NAME_ABBR[city] + "/"
+    make_dir(TRAIN_TEST_DIR)
+    make_dir(city_traintest_dir)
+    train_pos.to_csv(city_traintest_dir + "train_pos.csv", index=False)
+    dump_pkl(city_traintest_dir + "train_neg.pkl", train_neg)
+    dump_pkl(city_traintest_dir + "test_instances.pkl", test_instances)
+    
+    print("\t[--gen_data] {}: Finished! Data generated at {}"
+            .format(city, city_traintest_dir))
 
 
 if __name__ == "__main__":
