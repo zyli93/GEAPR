@@ -18,6 +18,7 @@ from utils import load_pkl
 YELP_PARSE = "./data/parse/yelp/"
 YELP_CITY = YELP_PARSE + "citycluster/"
 YELP_INTERACTION = YELP_PARSE + "interactions/"
+YELP_TRAINTEST = YELP_PARSE + "train_test/"
 YELP_GRAPH = "./data/graph/yelp/"
 
 class DataLoader:
@@ -36,24 +37,36 @@ class DataLoader:
 
         Args:
             flags - contains all the flags
+
+        Notes:
+            self.item_col_name:
+                refers to "business" when dataset is "yelp"
         """
         self.f = flags
+        self.nsr = self.f.negative_sample_ratio
 
         if self.f.dataset == "yelp":
             self.item_col_name = "business"
-            interaction_dir = YELP_INTERACTION + self.f.yelp_city + "/"
+            # interaction_dir = YELP_INTERACTION + self.f.yelp_city + "/"
+            train_test_dir = YELP_TRAINTEST + self.f.yelp_city + "/"
             city_dir = YELP_CITY + self.f.yelp_city + "/"
             graph_dir = YELP_GRAPH + self.f.yelp_city + "/"
 
-            print("[Data loader] loading friendship and strc-ctx graphs and user-friendship dict")
+            print("[Data loader] loading friendship and strc-ctx graphs",
+                  "and user-friendship dict")
             self.uf_graph = load_npz(graph_dir + "uf_graph.npz")
             self.usc_graph = load_npz(graph_dir + "uf_sc_graph.npz")
             self.uf_dict = load_pkl(city_dir + "city_user_friend.pkl")
 
-            print("[Data loader] loading train, test, and dev data")
-            self.train_data = pd.read_csv(interaction_dir + "train.csv")
-            self.test_data = pd.read_csv(interaction_dir + "test.csv")
-            self.dev_data = pd.read_csv(interaction_dir + "dev.csv")
+            print("[Data loader] loading train pos, train neg, and test instances.")
+            # self.train_data = pd.read_csv(interaction_dir + "train.csv")
+            # self.test_data = pd.read_csv(interaction_dir + "test.csv")
+            # self.dev_data = pd.read_csv(interaction_dir + "dev.csv")
+            self.train_pos = pd.read_csv(train_test_dir + "train_pos.csv")
+            self.train_pos = self.train_pos.values
+
+            self.train_neg = load_pkl(train_test_dir + "train_neg.pkl")
+            self.test_instances = load_pkl(train_test_dir + "test_instances.pkl")
 
             # TODO:
             #   1. map all features to categorical
@@ -67,29 +80,29 @@ class DataLoader:
             raise NotImplementedError("[DataLoader] Now only support yelp")
 
         self.set_to_dataset = {
-            "train": self.train_data,
-            "test": self.test_data,
-            "dev": self.dev_data
+            "train": self.train_pos,
+            "test": self.test_instances,
         }
 
 
-    def data_batch_generator(self, set_):
-        """Create a train batch generator
-        Args:
-            set_ - `train`, `test`, or `dev`, the set to create iterator for.
+    def get_train_batch_iterator(self):
+        """Create a train batch data iterator
+
         Yield:
             (iterator) of the dataset
         """
-        assert set_ in ["train", "test", "dev"], "`set_` can only be `train`, `test`, `dev`"
-        data = self.set_to_dataset[set_]
+        # define negagive sample function
+        neg_sample_func = lambda x: np.random.choice(
+            self.train_neg[x], size=self.nsr, replace=True)
+
         bs = self.f.batch_size
         total_batch = len(data) // self.f.batch_size
         for i in range(total_batch):
-            subdf = data.iloc[i * bs: (i+1) * bs]
-            label = subdf['label'].values
-            user = subdf['user'].values
-            item = subdf[self.item_col_name].values
-            yield (i, label, user, item)
+            batch = self.train_pos[i * bs: (i+1) * bs]
+            batch_users = batch_pos[:, 0]
+            batch_neg_samples = [neg_sample_func[x] for x in batch_pos_users]
+            batch_neg = np.array(batch_neg_samples)
+            yield (i, batch_pos, batch_neg, item)
 
 
     def get_user_graphs(self, user_array):

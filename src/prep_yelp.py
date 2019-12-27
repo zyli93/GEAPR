@@ -22,7 +22,6 @@ except ImportError:
 from utils import dump_pkl, load_pkl, make_dir
 
 
-# Global constants
 DATA_DIR = "./data/raw/yelp/"
 
 PARSE_ROOT_DIR = "./data/parse/"
@@ -307,7 +306,7 @@ def generate_data(city, ratio):
     unique_businesses = ub['business'].unique()
 
     split_ratio = ratio[0] / sum(ratio)
-    print("\t\tRatio: {}:{}; (Trn:Tst): {}".format(*ratio, split_ratio))
+    print("\t[--gen_data] ratio: {}:{}; (Trn:Tst): {}".format(*ratio, split_ratio))
 
     train_pos_list = []
     train_neg = {}
@@ -340,10 +339,13 @@ def generate_data(city, ratio):
     city_traintest_dir = TRAIN_TEST_DIR + CITY_NAME_ABBR[city] + "/"
     make_dir(TRAIN_TEST_DIR)
     make_dir(city_traintest_dir)
+
+    # shuffle train positive samples
+    train_pos = train_pos.sample(frac=1)
     train_pos.to_csv(city_traintest_dir + "train_pos.csv", index=False)
     dump_pkl(city_traintest_dir + "train_neg.pkl", train_neg)
     dump_pkl(city_traintest_dir + "test_instances.pkl", test_instances)
-    
+
     print("\t[--gen_data] {}: Finished! Data generated at {}"
             .format(city, city_traintest_dir))
 
@@ -413,5 +415,3 @@ if __name__ == "__main__":
 
     else:
         raise ValueError("Invalid --task parameter given, check out -h for valid options")
-
-
