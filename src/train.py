@@ -37,63 +37,50 @@ def train(flags, model, dataloader):
     config.gpu_options.per_process_gpu_memory_fraction = 0.8
 
     # === Run training ===
-    print("\n=======================")
-    print("\t\tID:{}".format(F.trial_id))
+    print("=======================")
+    print("\t\tExperiment ID:{}".format(F.trial_id))
     print("=======================")
 
     # training
     with tf.Session(config=config) as sess, \
-         open(perfdir + "/" + F.trial_id + ".perf", "w") as perf_writer:
+         open(perf_file, "w") as perf_writer:
 
         # initialization
         sess.run(tf.local_variables_initializer())
         sess.run(tf.global_variables_initializer())
 
         # batch data generator
-        trn_iter = dataloader.data_batch_generator(set_="train")
+        trn_iter = dataloader.get_train_batch_iterator()
 
         # run epochs
         for epoch in range(F.epoch):
-            data_loader.has_next = True
 
-            while trn_iter.has_next:
-
-                # get batch
-                bU, bI, bUn, bIn = data_loader.generate_batch()
-
+            # abbrevs: batch index, batch user, batch positive and negative items
+            for bI, bU, bP, bN in trn_iter:
                 # TODO: create indices, values, shapes
+                bUf, bUsc, bUfnbr = dataloader.get_user_graphs(bU)
+                bUattr = dataloader.get_user_attributes(bU)
 
                 # run training operation
-                loss, pred = sess.run(
-                    fetches=[
-                        model.loss,
-                        model.predictions
-                    ],
+                gs, loss = sess.run(
+                    fetches=[model.global_step, model.loss],
                     feed_dict={
-                        model.adjU_batch_sp: (biU, bvU, b_shapeU),
-                        model.adjI_batch_sp: (biI, bvI, b_shapeI),
-                        model.labels: batch_label
+                        model.batch_user: bU,
+                        model.batch_pos: bP, model.batch_neg: bN,
+                        model.batch_uf: bUf, model.batch_usc: bUsc,
+                        model.batch_uattr: bUattr
                     }
                 )
-
-                msg = None
 
                 # print results and write to file
                 if sess.run(model.global_step) \
                         % F.log_n_iter == 0:
 
-                    # TODO: get acc
-                    # TODO: get precision, recall
-                    acc = None
-                    precision, recall = None, None
+                    # TODO: get map, ndcg
 
-                    msg = build_msg(stage="Trn",
-                                    epoch=epoch,
-                                    iteration=data_loader.batch_index,
-                                    global_step=sess.run(model.global_step),
-                                    acc=acc,
-                                    prec=precision,
-                                    rec=recall)
+
+                    msg = build_msg(stage="Trn", ep=epoch, 
+                        gs=gs, bi=bI, map_=map_, ndcg=ndcg)
 
                     # write to file
                     print(msg, file=perf_writer)
@@ -104,7 +91,7 @@ def train(flags, model, dataloader):
 
                 # save model
                 if sess.run(model.global_step) \
-                        % F.save_n_epoch == 0:
+                        % F.save_n_poch == 0:
                     print("\tSaving Checkpoint at global step [{}]!"
                           .format(sess.run(model.global_step)))
                     saver.save(sess,
@@ -113,7 +100,7 @@ def train(flags, model, dataloader):
 
             # run validation set
             epoch_msg = evaluate(sess=sess,
-                                 data_loader=data_loader,
+                                 dataloader=dataloader,
                                  epoch=epoch,
                                  model=model)
 
@@ -123,18 +110,18 @@ def train(flags, model, dataloader):
     print("Training finished!")
 
 
-def validation(model, sess, epoch, data_loader):
+def validation(model, sess, epoch, dataloader):
     """run validation"""
 
 
-def evaluate(model, data_loader):
+def evaluate(model, dataloader):
     """ Evaluation function
 
     Args:
         model - the model
         sess - the session used to run everything
         epoch - number of epochs
-        data_loader - the data loader
+        dataloader - the data loader
 
     Return:
         msg - a message made report the message

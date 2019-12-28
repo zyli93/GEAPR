@@ -4,7 +4,8 @@
     @author: Zeyu Li <zyli@cs.ucla.edu>
 
     TODO:
-        only implemented yelp related datasets
+        1 - only implemented yelp related datasets
+        2 - implement get test data set!
 """
 
 import pandas as pd
@@ -90,6 +91,10 @@ class DataLoader:
 
         Yield:
             (iterator) of the dataset
+            i - the index of the returned batch
+            batch_users - (batch_size, ) batch of users
+            batch_items_pos - (batch_size, ) batch of positive items
+            batch_items_neg - (batch_size, self.nsr) batch of negative items
         """
         # define negagive sample function
         neg_sample_func = lambda x: np.random.choice(
@@ -100,9 +105,9 @@ class DataLoader:
         for i in range(total_batch):
             batch = self.train_pos[i * bs: (i+1) * bs]
             batch_users = batch_pos[:, 0]
-            batch_neg_samples = [neg_sample_func[x] for x in batch_pos_users]
-            batch_neg = np.array(batch_neg_samples)
-            yield (i, batch_pos, batch_neg, item)
+            batch_items_pos = batch_pos[:, 1]
+            batch_items_neg = np.array([neg_sample_func[x] for x in batch_pos_users])
+            yield (i, batch_users, batch_items_pos, batch_items_neg)
 
 
     def get_user_graphs(self, user_array):
@@ -110,7 +115,7 @@ class DataLoader:
 
         Args:
             user_array - numpy array of users to fetch data for
-        Return:
+        Returns:
             uf_mat - user-friendship adjacency matrix
             usc_mat - user structural context info matrix
             uf_nbr - user-frienship neighborhood relationships
@@ -129,7 +134,7 @@ class DataLoader:
 
         Args:
             user_array - numpy array of users to featch data for
-        Return:
+        Returns:
             user attribute submatrix
         """
         return self.user_attr.iloc[user_array]
@@ -140,21 +145,16 @@ class DataLoader:
 
         Args:
             item_array - numpy array of items to featch data for
-        Return:
+        Returns:
             item attribute submatrix
         """
         return self.item_attr.iloc[item_array]
 
 
-    def get_dataset_size(self, set_):
+    def get_dataset_size(self):
         """get the size of datasets
 
-        Args:
-            set_ : `train`, `test`, or `val`
         Return:
-            size
+            size of train 
         """
-        assert set_ in ["train", "test", "val"], \
-               "Invalid `set_` value, should be `train`, `test`, or `val`"
-        data = self.set_to_dataset[set_]
-        return len(data)
+        return len(self.train_pos)
