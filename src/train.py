@@ -73,30 +73,24 @@ def train(flags, model, dataloader):
                 )
 
                 # print results and write to file
-                if sess.run(model.global_step) \
-                        % F.log_n_iter == 0:
+                if gs % F.log_n_iter == 0:
 
                     # TODO: get map, ndcg
-
+                    # TODO: implement map and ndcg metrics
 
                     msg = build_msg(stage="Trn", ep=epoch, 
                         gs=gs, bi=bI, map_=map_, ndcg=ndcg)
 
-                    # write to file
+                    # write to file, print performance every 1000 batches
                     print(msg, file=perf_writer)
-
-                    # print performance every 1000 batches
-                    if sess.run(model.global_step) % (10 * F.log_n_iter) == 0:
+                    if gs % (10 * F.log_n_iter) == 0:
                         print(msg)
 
                 # save model
-                if sess.run(model.global_step) \
-                        % F.save_n_poch == 0:
+                if gs % F.save_n_poch == 0:
                     print("\tSaving Checkpoint at global step [{}]!"
                           .format(sess.run(model.global_step)))
-                    saver.save(sess,
-                               save_path=logdir,
-                               global_step=sess.run(model.global_step))
+                    saver.save(sess, save_path=logdir, global_step=gs)
 
             # run validation set
             epoch_msg = evaluate(sess=sess,
@@ -112,7 +106,9 @@ def train(flags, model, dataloader):
 
 def validation(model, sess, epoch, dataloader):
     """run validation"""
-
+    # TODO: implement me
+    # TODO: implement validation batch sampler
+    # TODO: 
 
 def evaluate(model, dataloader):
     """ Evaluation function

@@ -43,6 +43,7 @@ flags.DEFINE_string('yelp_city', 'lv', 'City data subset of yelp')
 flags.DEFINE_integer('save_per_iter', 1000, 'Number of iterations per save.')
 flags.DEFINE_integer('log_per_iter', 200, "Number of iterations per log.")
 flags.DEFINE_bool('reshuffle', False, "Re-shuffle training data.")  # TODO: keep this?
+flags.DEFINE_integer('negative_sample_ratio", 3, "Negative sample ratio")
 
 # Hyperparam - Optimization
 flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
@@ -55,18 +56,22 @@ flags.DEFINE_integer('rep_dim', 32, 'Internal representation dimensions.')
 flags.DEFINE_float("tao", 0.2, "Temperature constant!")
 flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
 flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
+flags.DEFINE_integer("num_total_item", None, "Number of total items.")
+flags.DEFINE_integer("num_user_attr", None, "Number of user attributes")
 
 # Model option
 flags.DEFINE_string("corr_metric", "cos", "Correlation metrics for centroids.")  # "cos", "log"
 flags.DEFINE_float("corr_weight", 0.1, "Correlation cost weight")
 
-# MLP Encoder
-flags.DEFINE_list('mlp_layers', None, "[comma sep. list] Structural context encoder layers.")
-# flags.DEFINE_string('ae_item_enc_layers', "", "Item size AE structure.")
-# flags.DEFINE_float("ae_weight", 0.1, "Auto encoder reconstruct error weight.")
+# Auto Encoder
+flags.DEFINE_list('ae_layers', None, "[comma sep. list] Structural context encoder layers.")
 
 # Graph Attention Network
 # TODO
+flags.DEFINE_list('gat_', 0.0, "For attention network, ")
+
+# Attentive Factorization Machine, TODO: fill in the following
+flags.DEFINE_list("afm_", 0.0, "xxx")
 
 FLAGS = flags.FLAGS
 

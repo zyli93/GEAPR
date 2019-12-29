@@ -1,10 +1,6 @@
 """Model for irsfn
 
     @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
-
-    TODO:
-        note that labels should be of integer type
-        4. (test) PCA decomposition for GAT
 """
 
 import tensorflow as tf
@@ -12,26 +8,27 @@ from modules import autoencoder, centroid
 
 
 class IRSModel:
-    def __init__(self
-                 , flags
-                 , ae_layers=None):
+    def __init__(self, flags):
         """Build a model with basic Auto Encoder
 
         Args:
-            ae_layers - the structure of the Auto Encoder/Decoder
             flags - FLAGS from the main function
         """
         self.F = flags
 
-        # Hyper-params
-        self.ae_layers = ae_layers
-
         # Placeholders
-        self.adjU_batch_sp = tf.sparse.placeholder(
-            [None, flags.user_size], dtype=tf.int32, name="AdjU_batch_sp")
-        self.adjI_batch_sp = tf.sparse.placeholder(
-            [None, flags.item_size], dtype=tf.int32, name="AdjU_batch_sp")
-        self.labels = tf.placeholder([None, 1], dtype=tf.int32, name="Labels")
+        self.batch_user = tf.placeholder(
+            [None, 1], dtype=tf.int32, name="batch_user")
+        self.batch_pos = tf.placeholder(
+            [None, 1], dtype=tf.int32, name="batch_pos_item")
+        self.batch_neg = tf.placeholder(
+            [None, flags.negative_sample_ratio], dtype=tf.int32, name="batch_neg_item")
+        self.batch_uf = tf.placeholder(
+            [None, 
+        self.batch_usc = tf.placeholder(
+            [None, flags.total_item_count], dtype=tf.float32, name="batch_user_struc_context")
+        self.batch_uattr = tf.placeholder(
+            [None, flags.total_user_attr_count], dtype=tf.int32, name="batch_user_attribute")
 
         # fetch-ables
         self.loss = None  # overall loss
@@ -191,9 +188,4 @@ class IRSModel:
         with tf.variable_scope("item_attn_pool", reuse=True):
             self.item_centroids = tf.get_variable(dtype=tf.float32,
                                                   name="item_centroids")
-
-
-
-
-
 
