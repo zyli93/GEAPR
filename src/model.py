@@ -1,4 +1,4 @@
-"""Model for irsfn
+"""Model for IRSFN
 
     @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 """
@@ -55,7 +55,7 @@ class IRSModel:
             3 - AFM: attentional factorization machine
         """
 
-        #
+        # regularization term
         reglr = tf.contrib.layers.l2_regularizer(scale=F.regularization_weight)
 
 
@@ -64,14 +64,18 @@ class IRSModel:
         # ===========================
 
 
-
         # ===========================
         #   Graph Attention Network
         # ===========================
 
 
         # ===========================
-        #       Attention FM
+        #      Attention FM
+        # ===========================
+
+
+        # ===========================
+        #      Item embedding
         # ===========================
 
 

@@ -1,79 +1,57 @@
-"""
-    Modules file, each module, defined as a function,
+"""Modules file, each module, defined as a function,
     is a part of the model.
 
+    @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
+
     tf.version: 1.13.1
-
-    Modules listed here:
-        1 - SDNE part as AE
-
-    @Author: Zeyu Li <zyli@cs.ucla.edu>
-
-    Borrowed code from this repo:
-        https://github.com/thunlp/OpenNE
 """
 
 import tensorflow as tf
-from utils import get_activation_func
 
 
-def autoencoder(raw_data, layers, name_scope,
-                regularizer=None):
-    """SDNE as a network embedding module.
+def autoencoder(input_features, layers, name_scope, 
+        regularizer=None, initializer=None):
+    """Auto encoder for structural context of users 
 
     Args:
-        raw_data - raw input feature
+        input_features - raw input structural context 
         layers - the structure of enc and dec.
                     [raw dim, hid1_dim, ..., hidk_dim, out_dim]
-        TODO: fix the layers
         scope - name_scope of the ops within the function
         regularizer - the regularizer
 
     Returns:
-        emb - user/item side embedding
-        loss - the loss of caused from SDNE part
+        output_feature - the output features
+        recon_loss - reconstruction loss 
     """
 
-    # create an auto-encoder scope
     with tf.name_scope(name_scope) as scope:
-        # create regularizer
 
-        feature = raw_data
+        features = input_features
 
         # encoder
         for i in range(len(layers) - 1):
-            feature = tf.layers.dense(feature,
-                                      units=layers[i+1],
-                                      activation=tf.nn.relu,
-                                      use_bias=True,
-                                      kernel_regularizer=regularizer,
-                                      bias_regularizer=regularizer,
-                                      name="enc_{}".format(i))
+            features = tf.layers.dense(inputs=features, units=layers[i+1],
+                activation=tf.nn.relu, use_bias=True,
+                kernel_regularizer=regularizer, kernel_initializer=initializer,
+                bias_regularizer=regularizer, name="usc_enc_{}".format(i))
 
         # encoded hidden representation
         hidden_feature = feature
 
         # decoder
         rev_layers = layers[::-1]
-        for i in range(len(layers) - 2):
-            feature = tf.layers.dense(feature,
-                                      units=rev_layers[i+1],
-                                      activation=tf.nn.relu,
-                                      use_bias=True,
-                                      kernel_regularizer=regularizer,
-                                      bias_regularizer=regularizer,
-                                      name="dec_{}".format(i))
+        for i in range(1, len(rev_layers) - 2):
+            features = tf.layers.dense(inputs=features, units=rev_layers[i+1],
+                activation=tf.nn.relu, use_bias=True,
+                kernel_regularizer=regularizer, kernel_initializer=initializer,
+                bias_regularizer=regularizer, name="usc_dec_{}".format(i))
 
-        restore = tf.layers.dense(feature,
-                                  rev_layers[-1],
-                                  activation=None,
-                                  use_bias=True,
-                                  kernel_regularizer=regularizer,
-                                  bias_regularizer=regularizer,
-                                  name="restore")
-
-        # TODO: check if float numbers are subtractable
-        #       with sparse tensor
+        # last layer to restore
+        restore = tf.layers.dense(inputs=features, units=rev_layers[-1],
+                activation=None, use_bias=True,
+                kernel_regularizer=regularizer, kernel_initializer=initializer,
+                bias_regularizer=regularizer, name="usc_reconstruct_layer")
 
         # reconstruction loss
         recon_loss = tf.nn.l2_loss(raw_data - restore,
