@@ -55,31 +55,45 @@ class IRSModel:
             3 - AFM: attentional factorization machine
         """
 
-        # regularization term
+        # regularizer and initializer 
         reglr = tf.contrib.layers.l2_regularizer(scale=F.regularization_weight)
+        inilz = tf.contrib.layers.xavier_initializer(seed=723)
 
 
         # ===========================
         #      Auto Encoders
         # ===========================
 
+        # TODO: check if F.ae_layers is [raw, hid1, ..., hidn, out]
+
+        usc_rep = autoencoder(input_features=self.batch_usc,
+            layers=self.F.ae_layers name_scope="user_struc_context_ae",
+            regularizer=reglr, initializer=inilz)
 
         # ===========================
         #   Graph Attention Network
         # ===========================
 
+        uf_rep = graph_attn_net(input_features=self.batch_uf)
+
 
         # ===========================
         #      Attention FM
         # ===========================
+        uattr_rep = attentional_fm()
 
 
         # ===========================
         #      Item embedding
         # ===========================
 
+        # TODO: check out get_embedding usage, check num_units correct value
+        pos_item_emb = get_embedding(inputs=self.batch_pos, vocab_size,
+            name_scope="item", num_units=?)
 
-        # TODO: embU, embI directly send to centroids?
+        neg_item_emb = get_embedding(inputs=self.batch_neg, vocab_size,
+            name_scope="item", num_units=?)
+
 
         # ============================
         #      Centroids/Interest
@@ -109,16 +123,13 @@ class IRSModel:
         # Notes: autoencoder does not return reg loss,
         #        get sum of reg loss by tf.losses.get_regularization_loss()
 
-        # ======================
-        #       Prediction
-        # ======================
-
-        # ctrdU, ctrdI \in (b,d)
 
 
         # ======================
         #       Losses, TODO
         # ======================
+
+        # TODO: ranking loss, binary loss
 
         loss = pred_loss1  # prediction loss
         loss += F.ae_weight * (ae_lossU + ae_lossI)  # auto encoder reconstruction loss

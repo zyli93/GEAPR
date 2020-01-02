@@ -26,7 +26,6 @@ def autoencoder(input_features, layers, name_scope,
     """
 
     with tf.name_scope(name_scope) as scope:
-
         features = input_features
 
         # encoder
@@ -47,7 +46,7 @@ def autoencoder(input_features, layers, name_scope,
                 kernel_regularizer=regularizer, kernel_initializer=initializer,
                 bias_regularizer=regularizer, name="usc_dec_{}".format(i))
 
-        # last layer to restore
+        # last layer to reconstruct
         restore = tf.layers.dense(inputs=features, units=rev_layers[-1],
                 activation=None, use_bias=True,
                 kernel_regularizer=regularizer, kernel_initializer=initializer,
@@ -60,12 +59,74 @@ def autoencoder(input_features, layers, name_scope,
     return hidden_feature, recon_loss
 
 
-def centroid(hidden_enc, n_centroid,
-             emb_size, tao,
-             name_scope, var_name,
-             corr_metric,
-             regularizer=None,
-             activation=None):
+def attentional_fm(input_features, name_scope, dropout_keep=None):
+    """attentional factorization machine for attribute feature extractions
+
+    Args:
+        input_features - [batch_size, attribute_size] input discrete features
+        name_scope - 
+        attr_size - [int] number of attribute size, abbrev. M
+        dropout_keep - [TODO] decide dropout_keep type and 
+
+
+    Returns:
+        features - 
+        attentions - 
+
+    TODO: what is attribute size
+
+    """
+    # TODO: finish following statement
+    uattr_emb = get_embedding(inputs, vocab_size, name_scope, num_units, zero_pad=False):
+
+    with tf.name_scope(name_scope) as scope:
+        embeddings = tf.nn.embedding_lookup(uattr_emb, input_features)
+        element_wise_prod_list = []
+        count = 0
+
+        attn_W = tf.get_variable()  # TODO: get variable here
+        attn_p = tf.get_variable()  # TODO: fix me!
+        attn_b = tf.get_variable()  # TODO: fix me!
+        for i in range(0, attr_size):
+            for j in range(i+1, attr_size):
+                element_wise_prod_list.append(
+                    tf.multiply(uattr_emb[:, i, :], uattr[:, j, :]))
+                count += 1
+        element_wise_prod = tf.stack(element_wise_prod_list)  # ((M*(M-1)) * None * k
+        element_wise_prod = tf.transpose(element_wise_prod, perm=[1,0,2],
+            name="afm_element_wise_prod")  # (None * (M*(M-1)) * k
+        interactions = tf.reduce_sum(element_wise_prod, axis=2, name="afm_interactions")
+        num_interactions = attr_size * (attr_size - 1) / 2
+
+        # attentional part
+        attn_mul = tf.reshape(
+            tf.matmul(tf.reshape(
+                element_wise_prod, shape=[-1, hidden_factor[1]]), attn_W), 
+            shape=[-1, num_interactions, self.hidden_factor[0])
+        # TODO: what is hidden factor?
+
+        attn_relu = tf.reduce_sum(
+            tf.multiply(attn_p, tf.nn.relu(attn_mul + attn_b)), axis=2, keepdims=True)
+
+        attn_out = tf.nn.softmax(attn_relu)
+
+        # TODO: decide add dropout or not
+        if dropout_keep:
+            attn_out = tf.nn.dropout(attn_out, dropout_keep)
+            # TODO: why use dropout_keep[1]: because dropout_keep is [None] shape
+
+        afm = tf.reduce_sum(tf.multiply(attn_out, element_wise_prod), axis=1, name="afm")
+        if dropout_keep:
+            afm = tf.nn.dropout_keep(afm, dropout_keep)
+            # TODO: dropout_keep is a tf.placeholder or flag values?
+
+        # TODO: what's the dimension?
+
+        return afm, # TODO: what else?
+
+
+def centroid(hidden_enc, n_centroid, emb_size, tao, name_scope, var_name, corr_metric,
+             regularizer=None, activation=None):
     """Model the centroids for users/items
 
     Centroids mean interests for users and categories for items
@@ -148,8 +209,7 @@ def gatnet():
     Args:
     """
 
-def mlp(raw_data, layers, name_scope,
-        regularizer=None):
+def mlp(raw_data, layers, name_scope, regularizer=None):
     """Multi-layer Perceptron
 
     :param raw_data:
@@ -180,20 +240,17 @@ def mlp(raw_data, layers, name_scope,
         return feature
 
 
-def get_embedding(inputs, vocab_size,
-                  name_scope,
-                  num_units, zero_pad=False):
+def get_embedding(inputs, vocab_size, name_scope, num_units, zero_pad=False):
     """Embeds a given tensor.
     """
 
     with tf.variable_scope(name_scope, reuse=tf.AUTO_REUSE):
-        lookup_table = tf.get_variable('lookup_table',
-                                       dtype=tf.float32,
-                                       shape=[vocab_size, num_units],
-                                       initializer=tf.contrib.layers.xavier_initializer())
+        lookup_table = tf.get_variable('lookup_table', dtype=tf.float32,
+            shape=[vocab_size, num_units],
+            initializer=tf.contrib.layers.xavier_initializer())
         if zero_pad:
             lookup_table = tf.concat((tf.zeros(shape=[1, num_units]),
-                                      lookup_table[1:, :]), 0)
+                lookup_table[1:, :]), 0)
         outputs = tf.nn.embedding_lookup(lookup_table, inputs)
 
     return outputs
