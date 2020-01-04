@@ -81,21 +81,16 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
         dropout_keep - [bool] whether to use dropout in AFM
 
     Returns:
-        features - 
-        attentions - 
-
-    TODO: what is attribute size
+        afm - attentional factorization machine output
+        attn_out - attention output 
 
     """
-
-    # TODO: what is count here?
 
     with tf.variable_scope(name_scope) as scope:
         embedding_mat = get_embeddings(vocab_size=feat_size, num_units=emb_dim,
             name_scope=scope, zero_pad=True)  # (|A|+1, d) lookup table for all attr emb 
         uattr_emb = tf.nn.embedding_lookup(embedding_mat, input_features)  # (b, k, d)
         element_wise_prod_list = []
-        count = 0
 
         attn_W = tf.get_variable(name="attention_W", dtype=tf.float32,
             shape=[emb_dim, emb_dim], initializer=initializer, regularizer=regularizer)
@@ -105,13 +100,6 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
             shape=[emb_dim], initializer=initializer, regularizer=regularizer)
 
         for i in range(0, attr_size):
-            for j in range(i+1, attr_size):
-                element_wise_prod_list.append(
-                    tf.multiply(uattr_emb[:, i, :], uattr_emb[:, j, :]))
-                count += 1
-
-        element_wise_prod = tf.stack(element_wise_prod_list, axis=1,
-            name="afm_element_wise_prof")  # b * (k*(k-1)) * d
         interactions = tf.reduce_sum(element_wise_prod, axis=2, 
             name="afm_interactions")  # b * (k*(k-1))
         num_interactions = attr_size * (attr_size - 1) / 2  # aka: k *(k-1)
@@ -125,16 +113,20 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
         attn_relu = tf.reduce_sum(
             tf.multiply(attn_p, tf.nn.relu(attn_mul + attn_b)), axis=2, keepdims=True)
         # after relu/multiply: b*(k*(k-1))*d; 
-        # after reduce_sum + keepdims: b*1*d
+        # after reduce_sum + keepdims: b*(k*(k-1))*1
 
-        attn_out = tf.nn.softmax(attn_relu)
+        attn_out = tf.nn.softmax(attn_relu)  # b*(k*(k-1)*d
 
         afm = tf.reduce_sum(tf.multiply(attn_out, element_wise_prod), axis=1, name="afm")
         # afm: b*(k*(k-1))*d => b*d
         if dropout_keep:
             afm = tf.nn.dropout_keep(afm, dropout_keep)
 
-        return afm, attn_out 
+        attn_out = tf.squeeze(attn_out, name="attention_output")
+
+        # TODO: first order feature not considered yet!
+
+        return afm, attn_out
 
 
 def centroid(hidden_enc, n_centroid, emb_size, tao, name_scope, var_name, corr_metric,
@@ -218,39 +210,16 @@ def centroid(hidden_enc, n_centroid, emb_size, tao, name_scope, var_name, corr_m
 def gatnet():
     """Graph Attention Network component for users/items
 
+    Notes:
+        1. fetch embeddings from inside the function
+        2. 
+
     Args:
     """
 
-def mlp(raw_data, layers, name_scope, regularizer=None):
-    """Multi-layer Perceptron
+    # TODO: implement me!
+    pass
 
-    :param raw_data:
-    :param layers: [raw_dim, layer1, layer2, ...]
-    :param name_scope:
-    :param regularizer:
-    :return:
-
-    TODO:
-        - decise whether to use batch normalization
-        - decise whether to use dropout
-    """
-
-    # implicit community detection
-    with tf.name_scope(name_scope):
-        for i in range(1, len(layers) - 1):
-            feature = tf.layers.dense(feature,
-                units=layers[i], activation=tf.nn.relu,
-                use_bias=True, kernel_regularizer=regularizer,
-                bias_regularizer=regularizer, name="imp_enc_{}".format(i))
-
-        feature = tf.layers.dense(feature,
-                units=layers[-1], activation=tf.nn.tanh,
-                use_bias=False, kernel_regularizer=regularizer,
-                bias_regularizer=regularizer,
-                name="imp_enc_{}".format(len(layers)))
-
-        return feature
-s
 
 def get_embeddings(vocab_size, num_units, name_scope, zero_pad=False):
     """Construct a embedding matrix
@@ -274,3 +243,32 @@ def get_embeddings(vocab_size, num_units, name_scope, zero_pad=False):
                 embeddings[1:, :]), 0)
 
     return embeddings
+
+
+# ======== not used ==========
+
+def mlp(raw_data, layers, name_scope, regularizer=None):
+    """Multi-layer Perceptron
+
+    :param raw_data:
+    :param layers: [raw_dim, layer1, layer2, ...]
+    :param name_scope:
+    :param regularizer:
+    :return:
+    """
+
+    # implicit community detection
+    with tf.name_scope(name_scope):
+        for i in range(1, len(layers) - 1):
+            feature = tf.layers.dense(feature,
+                units=layers[i], activation=tf.nn.relu,
+                use_bias=True, kernel_regularizer=regularizer,
+                bias_regularizer=regularizer, name="imp_enc_{}".format(i))
+
+        feature = tf.layers.dense(feature,
+                units=layers[-1], activation=tf.nn.tanh,
+                use_bias=False, kernel_regularizer=regularizer,
+                bias_regularizer=regularizer,
+                name="imp_enc_{}".format(len(layers)))
+
+        return feature

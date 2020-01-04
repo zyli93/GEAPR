@@ -74,31 +74,30 @@ class IRSModel:
         # ===========================
         #   Graph Attention Network
         # ===========================
-        # TODO: best position for user embedding
-        user_emb = get_embeddings(vocab_size=self.F.num_total_user,
-            num_units=self.F.embedding_dim, name_scope="user_attr_emb")
+
         uf_rep = graph_attn_net(input_features=self.batch_uf)
+        # TODO: implement me!
 
 
         # ===========================
         #      Attention FM
         # ===========================
-        user_attr_emb = get_embeddings(vocab_size=self.F.num_user_attr,
-            num_units=self.F.embedding_dim, name_scope="user_attr_emb")
-        uattr_rep = attentional_fm()
 
+        uattr_rep, afm_attn_output = attentional_fm(
+            name_scope="afm", input_features=self.batch_uattr,
+            emb_dim=self.F.embedding_dim, feat_size=self.F.XXX,
+            initializer=inilz, regularizer=reglr, dropout_keep=self.F.XXX)
 
         # ===========================
         #      Item embedding
         # ===========================
 
-        # TODO: check out get_embedding usage, check num_units correct value
-        pos_item_emb = get_embeddings(inputs=self.batch_pos, vocab_size,
-            name_scope="item", num_units=?)
-
-        neg_item_emb = get_embeddings(inputs=self.batch_neg, vocab_size,
-            name_scope="item", num_units=?)
-
+        # TODO: check item_emb_mat size is good or no
+        item_emb_mat = get_embeddings(vocab_size=self.F.num_total_item,
+            num_units=self.F.embedding_dim, name_scope="item_embedding_matrix", 
+            zero_pad=True)
+        pos_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_pos)
+        neg_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_neg)
 
         # ============================
         #      Centroids/Interest
