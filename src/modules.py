@@ -100,9 +100,9 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
         attn_W = tf.get_variable(name="attention_W", dtype=tf.float32,
             shape=[emb_dim, emb_dim], initializer=initializer, regularizer=regularizer)
         attn_p = tf.get_variable(name="attention_p", dtype=tf.float32,
-            shape=[emb_dim, 1], initializer=initializer, regularizer=regularizer)
+            shape=[emb_dim], initializer=initializer, regularizer=regularizer)
         attn_b = tf.get_variable(name="attention_b", dtype=tf.float32,
-            shape=[emb_dim, 1], initializer=initializer, regularizer=regularizer)
+            shape=[emb_dim], initializer=initializer, regularizer=regularizer)
 
         for i in range(0, attr_size):
             for j in range(i+1, attr_size):
@@ -119,23 +119,22 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
         # attentional part
         attn_mul = tf.reshape(
             tf.matmul(tf.reshape(
-                element_wise_prod, shape=[-1, emb_dim]), attn_W), 
-            shape=[-1, num_interactions, emb_dim])
+                element_wise_prod, shape=[-1, emb_dim]), attn_W),
+            shape=[-1, num_interactions, emb_dim])  # b * (k*k-1)) * d
 
         attn_relu = tf.reduce_sum(
             tf.multiply(attn_p, tf.nn.relu(attn_mul + attn_b)), axis=2, keepdims=True)
-        # TODO: take care of attn_b and attn_p dims
+        # after relu/multiply: b*(k*(k-1))*d; 
+        # after reduce_sum + keepdims: b*1*d
 
         attn_out = tf.nn.softmax(attn_relu)
 
-        if dropout_keep:
-            attn_out = tf.nn.dropout(attn_out, dropout_keep)
-
         afm = tf.reduce_sum(tf.multiply(attn_out, element_wise_prod), axis=1, name="afm")
+        # afm: b*(k*(k-1))*d => b*d
         if dropout_keep:
             afm = tf.nn.dropout_keep(afm, dropout_keep)
 
-        return afm, attn_out# TODO: what else? what's attn_out 
+        return afm, attn_out 
 
 
 def centroid(hidden_enc, n_centroid, emb_size, tao, name_scope, var_name, corr_metric,
