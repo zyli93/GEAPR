@@ -4,6 +4,9 @@
     @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
     tf.version: 1.13.1
+
+    Notes:
+        1. Pay attention to zero padding for every get_embeddings()
 """
 
 import tensorflow as tf
@@ -59,15 +62,23 @@ def autoencoder(input_features, layers, name_scope,
     return hidden_feature, recon_loss
 
 
-def attentional_fm(input_features, name_scope, dropout_keep=None):
+def attentional_fm(name_scope, input_features, emb_dim, feat_size,
+                   initializer=None, regularizer=None, dropout_keep=None):
     """attentional factorization machine for attribute feature extractions
 
-    Args:
-        input_features - [batch_size, attribute_size] input discrete features
-        name_scope - 
-        attr_size - [int] number of attribute size, abbrev. M
-        dropout_keep - [TODO] decide dropout_keep type and 
+    Shapes:
+        b - batch_size
+        k - number of fields
+        d - embedding_size
+        |A| - total number of attributes
 
+    Args:
+        name_scope - [str]
+        input_features - [int] (b, k) input discrete features
+        emb_dim - [int] dimension of each embedding, d
+        feat_size - [int] total number of distinct features (fields) for FM, A
+        attr_size - [int] total number of fields , abbrev. k
+        dropout_keep - [bool] whether to use dropout in AFM
 
     Returns:
         features - 
@@ -76,53 +87,55 @@ def attentional_fm(input_features, name_scope, dropout_keep=None):
     TODO: what is attribute size
 
     """
-    # TODO: finish following statement
-    uattr_emb = get_embedding(inputs, vocab_size, name_scope, num_units, zero_pad=False):
 
-    with tf.name_scope(name_scope) as scope:
-        embeddings = tf.nn.embedding_lookup(uattr_emb, input_features)
+    # TODO: what is count here?
+
+    with tf.variable_scope(name_scope) as scope:
+        embedding_mat = get_embeddings(vocab_size=feat_size, num_units=emb_dim,
+            name_scope=scope, zero_pad=True)  # (|A|+1, d) lookup table for all attr emb 
+        uattr_emb = tf.nn.embedding_lookup(embedding_mat, input_features)  # (b, k, d)
         element_wise_prod_list = []
         count = 0
 
-        attn_W = tf.get_variable()  # TODO: get variable here
-        attn_p = tf.get_variable()  # TODO: fix me!
-        attn_b = tf.get_variable()  # TODO: fix me!
+        attn_W = tf.get_variable(name="attention_W", dtype=tf.float32,
+            shape=[emb_dim, emb_dim], initializer=initializer, regularizer=regularizer)
+        attn_p = tf.get_variable(name="attention_p", dtype=tf.float32,
+            shape=[emb_dim, 1], initializer=initializer, regularizer=regularizer)
+        attn_b = tf.get_variable(name="attention_b", dtype=tf.float32,
+            shape=[emb_dim, 1], initializer=initializer, regularizer=regularizer)
+
         for i in range(0, attr_size):
             for j in range(i+1, attr_size):
                 element_wise_prod_list.append(
-                    tf.multiply(uattr_emb[:, i, :], uattr[:, j, :]))
+                    tf.multiply(uattr_emb[:, i, :], uattr_emb[:, j, :]))
                 count += 1
-        element_wise_prod = tf.stack(element_wise_prod_list)  # ((M*(M-1)) * None * k
-        element_wise_prod = tf.transpose(element_wise_prod, perm=[1,0,2],
-            name="afm_element_wise_prod")  # (None * (M*(M-1)) * k
-        interactions = tf.reduce_sum(element_wise_prod, axis=2, name="afm_interactions")
-        num_interactions = attr_size * (attr_size - 1) / 2
+
+        element_wise_prod = tf.stack(element_wise_prod_list, axis=1,
+            name="afm_element_wise_prof")  # b * (k*(k-1)) * d
+        interactions = tf.reduce_sum(element_wise_prod, axis=2, 
+            name="afm_interactions")  # b * (k*(k-1))
+        num_interactions = attr_size * (attr_size - 1) / 2  # aka: k *(k-1)
 
         # attentional part
         attn_mul = tf.reshape(
             tf.matmul(tf.reshape(
-                element_wise_prod, shape=[-1, hidden_factor[1]]), attn_W), 
-            shape=[-1, num_interactions, self.hidden_factor[0])
-        # TODO: what is hidden factor?
+                element_wise_prod, shape=[-1, emb_dim]), attn_W), 
+            shape=[-1, num_interactions, emb_dim])
 
         attn_relu = tf.reduce_sum(
             tf.multiply(attn_p, tf.nn.relu(attn_mul + attn_b)), axis=2, keepdims=True)
+        # TODO: take care of attn_b and attn_p dims
 
         attn_out = tf.nn.softmax(attn_relu)
 
-        # TODO: decide add dropout or not
         if dropout_keep:
             attn_out = tf.nn.dropout(attn_out, dropout_keep)
-            # TODO: why use dropout_keep[1]: because dropout_keep is [None] shape
 
         afm = tf.reduce_sum(tf.multiply(attn_out, element_wise_prod), axis=1, name="afm")
         if dropout_keep:
             afm = tf.nn.dropout_keep(afm, dropout_keep)
-            # TODO: dropout_keep is a tf.placeholder or flag values?
 
-        # TODO: what's the dimension?
-
-        return afm, # TODO: what else?
+        return afm, attn_out# TODO: what else? what's attn_out 
 
 
 def centroid(hidden_enc, n_centroid, emb_size, tao, name_scope, var_name, corr_metric,
@@ -238,19 +251,27 @@ def mlp(raw_data, layers, name_scope, regularizer=None):
                 name="imp_enc_{}".format(len(layers)))
 
         return feature
+s
 
+def get_embeddings(vocab_size, num_units, name_scope, zero_pad=False):
+    """Construct a embedding matrix
 
-def get_embedding(inputs, vocab_size, name_scope, num_units, zero_pad=False):
-    """Embeds a given tensor.
+    Args:
+        vocab_size - vocabulary size (the V.)
+        num_units - the embedding size (the d.)
+        name_scope - the name scope of the matrix
+        zero_pad - [bool] whether to pad the matrix by column of zeros
+
+    Returns:
+        embedding matrix - [float] (V+1, d)
     """
 
     with tf.variable_scope(name_scope, reuse=tf.AUTO_REUSE):
-        lookup_table = tf.get_variable('lookup_table', dtype=tf.float32,
+        embeddings = tf.get_variable('embedding_matrix', dtype=tf.float32,
             shape=[vocab_size, num_units],
             initializer=tf.contrib.layers.xavier_initializer())
         if zero_pad:
-            lookup_table = tf.concat((tf.zeros(shape=[1, num_units]),
-                lookup_table[1:, :]), 0)
-        outputs = tf.nn.embedding_lookup(lookup_table, inputs)
+            embeddings = tf.concat((tf.zeros(shape=[1, num_units]),
+                embeddings[1:, :]), 0)
 
-    return outputs
+    return embeddings

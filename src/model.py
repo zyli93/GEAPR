@@ -5,6 +5,7 @@
 
 import tensorflow as tf
 from modules import autoencoder, centroid
+from modules import get_embeddings
 
 
 class IRSModel:
@@ -57,7 +58,7 @@ class IRSModel:
 
         # regularizer and initializer 
         reglr = tf.contrib.layers.l2_regularizer(scale=F.regularization_weight)
-        inilz = tf.contrib.layers.xavier_initializer(seed=723)
+        inilz = tf.contrib.layers.xavier_initializer()
 
 
         # ===========================
@@ -73,13 +74,17 @@ class IRSModel:
         # ===========================
         #   Graph Attention Network
         # ===========================
-
+        # TODO: best position for user embedding
+        user_emb = get_embeddings(vocab_size=self.F.num_total_user,
+            num_units=self.F.embedding_dim, name_scope="user_attr_emb")
         uf_rep = graph_attn_net(input_features=self.batch_uf)
 
 
         # ===========================
         #      Attention FM
         # ===========================
+        user_attr_emb = get_embeddings(vocab_size=self.F.num_user_attr,
+            num_units=self.F.embedding_dim, name_scope="user_attr_emb")
         uattr_rep = attentional_fm()
 
 
@@ -88,10 +93,10 @@ class IRSModel:
         # ===========================
 
         # TODO: check out get_embedding usage, check num_units correct value
-        pos_item_emb = get_embedding(inputs=self.batch_pos, vocab_size,
+        pos_item_emb = get_embeddings(inputs=self.batch_pos, vocab_size,
             name_scope="item", num_units=?)
 
-        neg_item_emb = get_embedding(inputs=self.batch_neg, vocab_size,
+        neg_item_emb = get_embeddings(inputs=self.batch_neg, vocab_size,
             name_scope="item", num_units=?)
 
 

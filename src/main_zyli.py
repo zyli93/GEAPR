@@ -72,6 +72,7 @@ flags.DEFINE_list('gat_', 0.0, "For attention network, ")
 
 # Attentive Factorization Machine, TODO: fill in the following
 flags.DEFINE_list("afm_", 0.0, "xxx")
+flags.DEFINE_bool("afm_dropout", False, "Whether to use dropout in attentional FM")
 
 FLAGS = flags.FLAGS
 
