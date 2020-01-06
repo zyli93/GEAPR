@@ -75,8 +75,13 @@ class IRSModel:
         #   Graph Attention Network
         # ===========================
 
-        uf_rep = graph_attn_net(input_features=self.batch_uf)
-        # TODO: implement me!
+        # TODO: zero pad for user and item index
+
+        user_emb_mat = get_embeddings(vocab_size=self.F.num_total_user,
+            num_units=self.F.embedding_size, name_scope="gat", zero_pad=True)
+
+        uf_rep = gatnet(name_scope="gat", embedding_mat=user_emb_mat, 
+            input_indices=self.batch_user, adj_mat=self.batch_uf)
 
 
         # ===========================
@@ -92,7 +97,6 @@ class IRSModel:
         #      Item embedding
         # ===========================
 
-        # TODO: check item_emb_mat size is good or no
         item_emb_mat = get_embeddings(vocab_size=self.F.num_total_item,
             num_units=self.F.embedding_dim, name_scope="item_embedding_matrix", 
             zero_pad=True)
