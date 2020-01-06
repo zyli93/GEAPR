@@ -24,7 +24,7 @@ class IRSModel:
             [None, 1], dtype=tf.int32, name="batch_pos_item")
         self.batch_neg = tf.placeholder(
             [None, flags.negative_sample_ratio], dtype=tf.int32, name="batch_neg_item")
-        self.batch_uf = tf.placeholder() # TODO: fix me!
+        self.batch_uf = tf.placeholder() # TODO: fix me! to adj matrix
         self.batch_usc = tf.placeholder(
             [None, flags.num_total_item], dtype=tf.float32, name="batch_user_struc_context")
         self.batch_uattr = tf.placeholder(

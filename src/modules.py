@@ -214,46 +214,53 @@ def gatnet(name_scope, embedding_mat, input_indices, num_nodes, in_rep_size,
     Code adapted from: https://github.com/PetarV-/GAT
     But only implemented a simple (one-layered) version
 
+    Notations:
+        b - batch size
+        n - total number of nodes (user-friendship graph)
+
     Args:
         name_scope - name scope
         embedding_mat - the whole embedding matrix of nodes
         input_features - (?, ?, ?) the inputs of batch user indices
-        num_nodes - total number of nodes in the graph
-        adj_mat - adjacency matrix for the batch
+        num_nodes - [int] total number of nodes in the graph
+        adj_mat - [int] (b, n) adjacency matrix for the batch
         intn_rep_size - internal representation size
 
     Notes:
-        1. fetch embeddings from outside the function 
-        2. 
+        1. How to get bias_mat from adj_mat (learned from GAT repo issues)?
+            - adj_mat, bool or int of (0, 1)
+            - adj_mat, cast to float32
+            - 1 - adj_mat, 0 => 1 and 1 => 0
+            - -1e9 * (above), 0 => -1e9 and 1 => 0
+            - obtained bias_mat
     """
 
-    input_features = tf.nn.embedding_lookup(embedding_mat, input_indices)
+    with tf.name_scop(name_scope) as scope:
 
-    # TODO: create seq: create embedding mat,  
+        input_features = tf.nn.embedding_lookup(embedding_mat, input_indices)
+        bias_mat = -1e9 * (1 - tf.cast(adj_mat, dtype=tf.float32))  # (b, n)
 
+        # TODO: what is ffd_drop, in_drop, attn_drop, residual
 
-    bias_mat = None  # TODO: generate bias matrix
-    # TODO: what is ffd_drop, in_drop, attn_drop
+        attns = []
 
-    attns = []
+        for _ in range(n_heads[0]):
+            attns.append(gat_attn_head(seq=input_features, bias_mat=bias_mat,
+                output_size=in_rep_size, activation=tf.nn.relu, in_drop=ffd_drop,
+                coef_drop=attn_drop, residual=False))
+            h_1 = tf.concat(attns, axis=-1)
 
-    for _ in range(n_heads[0]):
-        attns.append(gat_attn_head(seq=input_features, bias_mat=bias_mat,
-            output_size=in_rep_size, activation=tf.nn.relu, in_drop=ffd_drop,
-            coef_drop=attn_drop, residual=False))
-        h_1 = tf.concat(attns, axis=-1)
+        out = []
 
-    out = []
+        # TODO: is the following useful?
+        for i in range(n_heads[-1]):
+            out.append(gat_attn_head(seq=h_1, bias_mat, output_size=???,
+                activation=lambda x: x, in_drop=ffd_drop, coef_drop=attn_drop,
+                residual=False))
 
-    # TODO: is the following useful?
-    for i in range(n_heads[-1]):
-        out.append(gat_attn_head(seq=h_1, bias_mat, output_size=???,
-            activation=lambda x: x, in_drop=ffd_drop, coef_drop=attn_drop,
-            residual=False))
+        logits = tf.add_n(out) / n_heads[-1]
 
-    logits = tf.add_n(out) / n_heads[-1]
-
-    return logits  # TODO: what else to return?
+        return logits  # TODO: what else to return?
 
 
 def gat_attn_head(seq, output_size, bias_mat, activation,
