@@ -5,8 +5,10 @@
 
     tf.version: 1.13.1
 
-    Notes:
+    TODO:
         1. Pay attention to zero padding for every get_embeddings()
+        2. correctly use name_scope and variable_scope
+
 """
 
 import tensorflow as tf
@@ -235,13 +237,15 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_
             - adj_mat, bool or int of (0, 1)
             - adj_mat, cast to float32
             - 1 - adj_mat, 0 => 1 and 1 => 0
-            - -1e9 * (above), 0 => -1e9 and 1 => 0
+            - -1e9 * (above): 0 => -1e9 and 1 => 0
             - obtained bias_mat
     """
 
     with tf.name_scop(name_scope) as scope:
 
-        input_features = tf.nn.embedding_lookup(embedding_mat, input_indices)
+        # TODO: number of dimensions disagree between gatnet and gat head
+
+        input_features = tf.nn.embedding_lookup(embedding_mat, input_indices) # (b, d)
         bias_mat = -1e9 * (1 - tf.cast(adj_mat, dtype=tf.float32))  # (b, n)
 
         hidden_features = []
@@ -250,7 +254,7 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_
         for _ in range(n_heads):
             hid_feature, attn = gat_attn_head(seq=input_features, bias_mat=bias_mat,
                 output_size=in_rep_size, activation=tf.nn.relu, ft_drop=ft_drop,
-                coef_drop=attn_drop, residual=False)
+                coef_drop=attn_drop)
             hidden_features.append(hid_feature)
             attns.append(attn)
             h_1 = tf.concat(attns, axis=-1)
@@ -303,7 +307,7 @@ def gat_attn_head(input_features, output_size, bias_mat, activation, ft_drop=0.0
 
     with tf.name_scope('gat_attn_head'):
         if ft_drop != 0.0:
-            input_features = tf.nn.dropout(input_features, 1.0 - ft_drop)
+            input_features = tf.nn.dropout(input_features, ft_drop)
 
         # h -> Wh, from R^f to R^F', (b, n, oz)
         hidden_feaures = tf.layers.conv1d(input_features, output_size, 1, use_bias=False)

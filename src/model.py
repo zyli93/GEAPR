@@ -118,6 +118,8 @@ class IRSModel:
         #      Centroids/Interest
         # ============================
 
+        # TODO: re-write the centroid functions
+
         ctrdU, corr_costU = centroid(hidden_enc=embU,
                                      n_centroid=F.user_n_ctrd,
                                      emb_size=F.embedding_size,
