@@ -57,6 +57,7 @@ flags.DEFINE_float("tao", 0.2, "Temperature constant!")
 flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
 flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
 flags.DEFINE_integer("num_total_item", None, "Number of total items.")
+flags.DEFINE_integer("num_total_user", None, "Number of total users.")
 flags.DEFINE_integer("num_user_attr", None, "Number of user attributes")
 
 # Model option
@@ -68,7 +69,10 @@ flags.DEFINE_list('ae_layers', None, "[comma sep. list] Structural context encod
 
 # Graph Attention Network
 # TODO
-flags.DEFINE_list('gat_', 0.0, "For attention network, ")
+flags.DEFINE_int('gat_nheads', 1, "Number of heads in GAT")
+flags.DEFINE_float('gat_ft_dropout', 0.4, "Dropout rate of GAT feedforward net")
+flags.DEFINE_float('gat_coef_dropout', 0.4, "Dropout rate of GAT coefficient mat")
+
 
 # Attentive Factorization Machine, TODO: fill in the following
 flags.DEFINE_list("afm_", 0.0, "xxx")

@@ -80,8 +80,11 @@ class IRSModel:
         user_emb_mat = get_embeddings(vocab_size=self.F.num_total_user,
             num_units=self.F.embedding_size, name_scope="gat", zero_pad=True)
 
-        uf_rep = gatnet(name_scope="gat", embedding_mat=user_emb_mat, 
-            input_indices=self.batch_user, adj_mat=self.batch_uf)
+        uf_rep = gatnet(name_scope="gat", embedding_mat=user_emb_mat,
+            adj_mat=self.batch_uf, input_indices=self.batch_user,
+            num_nodes=self.F.num_total_user, in_rep_size=self.F.rep_dim,
+            n_heads=self.F.gat_nheads, ft_drop=self.F.gat_ft_dropout,
+            attn_drop=self.F.gat_coef_dropout)
 
 
         # ===========================
@@ -102,6 +105,14 @@ class IRSModel:
             zero_pad=True)
         pos_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_pos)
         neg_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_neg)
+
+        # ==========================
+        #      User embedding
+        # ==========================
+
+        user_emb = uf_rep, usc_rep, uattr_rep # TODO: combine this
+
+
 
         # ============================
         #      Centroids/Interest
