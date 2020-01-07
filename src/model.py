@@ -112,8 +112,6 @@ class IRSModel:
 
         user_emb = uf_rep, usc_rep, uattr_rep # TODO: combine this
 
-
-
         # ============================
         #      Centroids/Interest
         # ============================

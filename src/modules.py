@@ -7,8 +7,6 @@
 
     TODO:
         1. Pay attention to zero padding for every get_embeddings()
-        2. correctly use name_scope and variable_scope
-
 """
 
 import tensorflow as tf
@@ -66,6 +64,8 @@ def autoencoder(input_features, layers, name_scope, regularizer=None, initialize
 def attentional_fm(name_scope, input_features, emb_dim, feat_size,
                    initializer=None, regularizer=None, dropout_keep=None):
     """attentional factorization machine for attribute feature extractions
+
+    TODO: rewrite the fetch features
 
     Shapes:
         b - batch_size
@@ -243,43 +243,42 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_
 
     with tf.name_scop(name_scope) as scope:
 
-        # TODO: number of dimensions disagree between gatnet and gat head
-
-        input_features = tf.nn.embedding_lookup(embedding_mat, input_indices) # (b, d)
-        bias_mat = -1e9 * (1 - tf.cast(adj_mat, dtype=tf.float32))  # (b, n)
+        bias_mat = -1e9 * (1 - tf.cast(adj_mat, dtype=tf.float32))  # (b, d)
 
         hidden_features = []
         attns = []
 
         for _ in range(n_heads):
-            hid_feature, attn = gat_attn_head(seq=input_features, bias_mat=bias_mat,
+            # (b, oz), (b, n)
+            hid_feature, attn = gat_attn_head(
+                input_indices=input_indices, emb_lookup=embedding_mat, bias_mat=bias_mat,
                 output_size=in_rep_size, activation=tf.nn.relu, ft_drop=ft_drop,
                 coef_drop=attn_drop)
             hidden_features.append(hid_feature)
             attns.append(attn)
-            h_1 = tf.concat(attns, axis=-1)
 
-        out = []
-        out_attns = []
-        # TODO: out / ceof xxx
+        h_1 = tf.concat(hidden_features, axis=-1)  # [n_head*(b, oz)] => (b, oz*n_head)
 
-
-        # TODO: is the following useful?
-        # gat_attn_head output size: (b, n, oz)
+        """
+        # Commenting these lines of code due to strategy change
+        # Gave up using attention
         for i in range(n_heads[-1]):
-            out_hid_feat, out_attn = gat_attn_head(seq=h_1, bias_mat, output_size=???,
-                activation=lambda x: x, ft_drop=ffd_drop, coef_drop=attn_drop,
-                residual=False)
+            out_hid_feat, out_attn = gat_attn_head(input_features=h_1, 
+                bias_mat=bias_mat, output_size=???,
+                activation=lambda x: x, ft_drop=ft_drop, coef_drop=attn_drop)
             out.append(out_hid_feat)
             out_attns.append(out_attn)
 
-        logits = tf.add_n(out) / n_heads[-1]  # TODO: fix this n_heads
+        logits = tf.add_n(out) / n_heads[-1] 
+        """
 
-        return logits,  # TODO: what else to return?
+        logits = tf.layers.conv1d(h_1, in_rep_size, 1, use_bias=False) # (b, oz)
+
+        return logits,  attns
 
 
-def gat_attn_head(input_features, output_size, bias_mat, activation, ft_drop=0.0,
-        coef_drop=0.0):
+def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation, 
+        head_id, ft_drop=0.0, coef_drop=0.0):
     """Single graph attention head
 
     Notes:
@@ -288,35 +287,41 @@ def gat_attn_head(input_features, output_size, bias_mat, activation, ft_drop=0.0
     Notations:
         b - batch size
         n - total node size
+        d - the dimension of embeddings
         k - feature size (embedding/representation size)
         oz - output size
 
     Args:
-        seq - (b, n, k) input data in format of batch adj-mat
+        input_indices - [int] (b) input indices of batch user
+        emb_lookup - [float] (n, d) the lookup table of embedings
         output_size - (oz) output size (internal representation size)
-        bias_mat - (b, n, n) bias (or mask) matrix (0 for edges, 1e-9 for non-edges)
+        bias_mat - (b, n) bias (or mask) matrix (0 for edges, 1e-9 for non-edges)
         activation - activation function
+        head_id - the 
         ft_drop - feature dropout rate, a.k.a., feed-forward dropout
             (e.g., 0.2 => 20% units would be dropped)
         coef_drop - coefficent dropput rate
 
     Returns:
-        ret - (b, n, oz) weighted (attentional) aggregated features for each node
-        coefs - (b, n, n) the attention distribution
+        ret - (b, oz) weighted (attentional) aggregated features for each node
+        coefs - (b, n) the attention distribution
     """
 
-    with tf.name_scope('gat_attn_head'):
+    with tf.name_scope("gat_attn_head_{}".format(head_id)) as scope:
         if ft_drop != 0.0:
-            input_features = tf.nn.dropout(input_features, ft_drop)
+            emb_lookup = tf.nn.dropout(emb_lookup, ft_drop)
 
-        # h -> Wh, from R^f to R^F', (b, n, oz)
-        hidden_feaures = tf.layers.conv1d(input_features, output_size, 1, use_bias=False)
+        # W*(whole-emb_mat), h->Wh, from R^f to R^F', (n, oz)
+        hid_emb_lookup = tf.layers.conv1d(emb_lookup, output_size, 1, use_bias=False)
+
+        # the batch of Wh's of the users, (b, oz)
+        b_hid_emb = tf.nn.embedding_lookup(hid_emb_lookup, input_indices)
 
         # simplest self-attention possible, concatenation implementiation
-        f_1 = tf.layers.conv1d(hidden_feaures, 1, 1)  # (b, n. 1)
-        f_2 = tf.layers.conv1d(hidden_feaures, 1, 1)  # (b, n, 1)
-        logtis=  f_1 + tf.transpose(f_2, [0, 2, 1])  # (b, n, n)
-        coefs = tf.nn.softmax(tf.nn,leaky_relu(logits) + bias_mat)  # (b, n, n)
+        f_1 = tf.layers.conv1d(b_hid_emb, 1, 1)  # (b, 1)
+        f_2 = tf.layers.conv1d(hid_emb_lookup, 1, 1)  # (n, 1)
+        logtis=  f_1 + tf.transpose(f_2, [0, 2, 1])  # (b, n)
+        coefs = tf.nn.softmax(tf.nn.leaky_relu(logits) + bias_mat)  # (b, n)
 
         if coef_drop != 0.0:
             coefs = tf.nn.dropout(coefs, coef_drop)
@@ -325,8 +330,8 @@ def gat_attn_head(input_features, output_size, bias_mat, activation, ft_drop=0.0
             hidden_feaures = tf.nn.dropout(hidden_feaures, ft_drop)
 
         # coefs are masked
-        vals = tf.matmul(coefs, hidden_feaures)  # (b, n, oz)
-        ret = activation(tf.contrib.layers.bias_add(vals))  # (b, n, oz)
+        vals = tf.matmul(coefs, hid_emb_lookup)  # (b, oz)
+        ret = activation(tf.contrib.layers.bias_add(vals))  # (b, oz)
 
         return ret, coefs
 
