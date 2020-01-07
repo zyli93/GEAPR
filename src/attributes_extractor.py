@@ -185,14 +185,43 @@ def extract_business_attr(city):
     return df_nonzero
 
 
+def discretize_field_attr(c, num_bkt):
+    """Discretize continuous fields to
+
+    Args:
+
+    Returns:
+        c - city
+        num_bkt - the number of buckets for embedding continuous values
+            >0 for a `num_bkt` number of buckets
+            -1 for a total discretize, i.e., take integers as discrete values
+
+    avg_stars,cool_score,elite_count,fans_count,funny_score,review_count,
+    useful_score,yelping_years
+    """
+    print("\t[user] discretize - loading user attrs")
+    df = pd.read_csv(INPUT_DIR + "{}/processed_city_user_profile.csv".format(c))
+    cols_val_range = dict()
+    for col in df.columns:
+        max_val, min_val = df[col].max(), df[col].min()
+        gap = (max_val - min_val) / num_bkt
+
+
+
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 1 + 1:
-        print("python {} [city]".format(sys.argv[0]))
+        print("python {} [city] [bucket_num]".format(sys.argv[0]))
         raise ValueError("Invalid input")
 
     city = sys.argv[1]
+    num_bkt = int(sys.argv[2])
+
     assert city in ["lv", "phx", "tor", "all"], \
             "invalid city, should be `all`, `lv`, `phx`, or `tor`"
+    assert num_bkt > 0 or num_bkt == -1, "invalid `bucket_num`, should be gt 0"
+
     city = ['lv', 'phx', 'tor'] if city == "all" else [city]
 
     for c in city:
@@ -200,10 +229,12 @@ if __name__ == "__main__":
         extract_user_attr(c)
 
         print("[attribute extractor] attribute to discrete values user")
+        discretize_field_attr(c, num_bkt)
         # TODO 
 
-        print("[attribute extractor] building business attributes {}".format(c))
-        extract_business_attr(c)
+        # Note: 
+        #   Did not implement business attribute extraction
 
-        print("[attribute extractor] attribute to discrete values business")
-        # TODO 
+        # print("[attribute extractor] building business attributes {}".format(c))
+        # extract_business_attr(c)
+        # print("[attribute extractor] attribute to discrete values business")
