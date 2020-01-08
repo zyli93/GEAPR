@@ -8,13 +8,18 @@ There's nothing in this one now.
 1. `src/build_graphs.py` has been changed a lot. Need to filter out unused functions.
 2. tune hyperparameters from `src/build_graphs.py`: `rwr_order` and `rwr_constant`.
 3. `src/main_zyli.py` handle `TODO`.
-4. Now that `prep_yelp.py` has been changed, we need to rerun it.
-5. Now that `attributes_extractor.py` has been changed, we need to rerun it.
+4. Now that `prep_yelp.py` has been changed, redo the doc of it.
+5. Now that `attributes_extractor.py` has been changed, redo the doc of it.
+6. Fix all TODO's in `model.py` and `training.py`.
+7. Implement interpretation logics!
+
 
 ## Notes
 1. `src/build_graphes.py.old` is a file backuped on Nov.24.
 
-## Preprocessing
+## Download raw dataset
+
+## Preprocess raw dataset
 
 ### Yelp dataset
 
@@ -61,8 +66,11 @@ In `./data/parse/yelp`, you would be able to see three folders:
 
 Among them, `citycluster` and `interactions` will be used in the future procedures.
 
+## Feature Engineering 
+Based on the preprocessed features, we further create adjacency matrix features 
+and user/item attribute features. Both of them will be fed into our model.
 
-## Building Structural Graphes
+### 1. Building Structural Graphes
 
 We are using structural context graphs for later computations. 
 Structural context graphs can be generated beforehand.
@@ -75,17 +83,28 @@ Here are two tunable hyperparameters:
 * `rwr_constant`: rate of re-starting. Default is 0.05.
 
 
-## Extracting user and item features
+### 2. Extracting user and item features
 
-We also need to extract features from user and item side. Just run the following commands:
+We also need to extract features from the user side. Just run the following commands:
 ```bash
-$ python src/attributes_extractor.py [city]
+$ python src/attributes_extractor.py [city] [num_bkl]
 ```
-This will generate `processed_city_user_profile.csv`, `processed_city_business_profile.csv`, and `bus_cat_idx_dict.pkl`
+This will generate `processed_city_user_profile.csv`, `processed_city_business_profile.csv`, `processed_city_user_profile_distinct.csv`, and `cols_disc_info.pkl`.
 in `data/parse/yelp/citycluster/[city]`. 
 It will also print out the percentage of empty values under each feature column.
+In the later training steps, the model will NOT use `processed_city_user_profile.csv` and `processed_city_business_profile.csv` because: (1) we don't use business information in the model; (2) `processed_city_user_profile.csv` isn't parsed to discrete categorical features by bucketing yet.
+
+Please pay attention to the `[num_bkt]`, we are using bucketing for all features by default. If some of the features are categorical and you don't think applying bucketing on that is a good idea. Please add the column name in `configs/user_attr_discrete.txt`: one-line per column name.
 
 
-## Run `dugrilp`
+## Run it!
 
+### 1. Parameters
+ - What are they?
+ - What to tune?
 
+### 2. Running 
+
+### 3. Performance
+
+### 4. Find the interpretations
