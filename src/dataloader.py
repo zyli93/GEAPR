@@ -3,10 +3,6 @@
 
     @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
-    TODO:
-        1 - only implemented yelp related datasets
-        2 - implement get test data set!
-        3 - implement get validation data set!
 """
 
 import pandas as pd

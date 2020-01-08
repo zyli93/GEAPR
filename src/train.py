@@ -6,11 +6,13 @@
         1. tensorboard is not used in this project
 
     @author: Zeyu Li <zyli@cs.ucla.edu>
+
 """
 
 import os
 import tensorflow as tf
 from utils import build_msg, cr
+from rank_metrics import mean_average_precision, ndcg_at_k 
 
 
 def train(flags, model, dataloader):
@@ -58,7 +60,7 @@ def train(flags, model, dataloader):
             # abbrevs: batch index, batch user, batch positive and negative items
             for bI, bU, bP, bN in trn_iter:
                 # TODO: create indices, values, shapes
-                bUf, bUsc, bUfnbr = dataloader.get_user_graphs(bU)
+                bUf, bUsc = dataloader.get_user_graphs(bU)
                 bUattr = dataloader.get_user_attributes(bU)
 
                 # run training operation
@@ -67,8 +69,7 @@ def train(flags, model, dataloader):
                     feed_dict={
                         model.batch_user: bU,
                         model.batch_pos: bP, model.batch_neg: bN,
-                        model.batch_uf: bUf, model.batch_usc: bUsc,
-                        model.batch_uattr: bUattr
+                        model.batch_uf: bUf, model.batch_usc: bUsc
                     }
                 )
 
