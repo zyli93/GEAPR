@@ -1,11 +1,12 @@
 """
     Data loader file
 
-    @author: Zeyu Li <zyli@cs.ucla.edu>
+    @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
     TODO:
         1 - only implemented yelp related datasets
         2 - implement get test data set!
+        3 - implement get validation data set!
 """
 
 import pandas as pd
@@ -23,7 +24,6 @@ YELP_TRAINTEST = YELP_PARSE + "train_test/"
 YELP_GRAPH = "./data/graph/yelp/"
 
 class DataLoader:
-            #   2. rename business to item
     """docstring of DataLoader"""
     def __init__(self, flags):
         """DataLoader for loading two types of data: 
@@ -45,6 +45,7 @@ class DataLoader:
         """
         self.f = flags
         self.nsr = self.f.negative_sample_ratio
+        self.valid_set = self.f.valid_set_size
 
         if self.f.dataset == "yelp":
             self.item_col_name = "business"
@@ -57,24 +58,22 @@ class DataLoader:
                   "and user-friendship dict")
             self.uf_graph = load_npz(graph_dir + "uf_graph.npz")
             self.usc_graph = load_npz(graph_dir + "uf_sc_graph.npz")
-            self.uf_dict = load_pkl(city_dir + "city_user_friend.pkl")
+            # self.uf_dict = load_pkl(city_dir + "city_user_friend.pkl")
 
             print("[Data loader] loading train pos, train neg, and test instances.")
             # self.train_data = pd.read_csv(interaction_dir + "train.csv")
             # self.test_data = pd.read_csv(interaction_dir + "test.csv")
             # self.dev_data = pd.read_csv(interaction_dir + "dev.csv")
-            self.train_pos = pd.read_csv(train_test_dir + "train_pos.csv")
-            self.train_pos = self.train_pos.values
+            self.train_pos = pd.read_csv(train_test_dir + "train_pos.csv").values
 
             self.train_neg = load_pkl(train_test_dir + "train_neg.pkl")
             self.test_instances = load_pkl(train_test_dir + "test_instances.pkl")
 
-            # TODO:
-            #   1. map all features to categorical
-            #   2. convert all pandas dataframe to numpy array
             print("[Data loader] loading user/item attributes")
-            self.user_attr = pd.read_csv(city_dir + "processed_city_user_profile.csv")
-            self.item_attr = pd.read_csv(city_dir + "processed_city_business_profile.csv")
+            # self.user_attr = pd.read_csv(city_dir + "processed_city_user_profile.csv")
+            # self.item_attr = pd.read_csv(city_dir + "processed_city_business_profile.csv")
+            self.user_attr = pd.read_csv(
+                city_dir+"processed_city_user_profile_distinct.csv").values
 
         else:
             self.item_col_name = None
@@ -120,13 +119,14 @@ class DataLoader:
             usc_mat - user structural context info matrix
             uf_nbr - user-frienship neighborhood relationships
 
-        TODO:
-            1. if all three information is needed
+        Notes:
+            1. Comment out uf_nbr because not used
         """
         uf_mat = self.uf_graph[user_array]
         usc_mat = self.usc_graph[user_array]
-        uf_nbr = {k: self.uf_dict[k] for k in user_array}
-        return uf_mat, usc_mat, uf_nbr
+        # uf_nbr = {k: self.uf_dict[k] for k in user_array}
+        # return uf_mat, usc_mat, uf_nbr
+        return uf_mat, usc_mat
 
 
     def get_user_attributes(self, user_array):
@@ -137,11 +137,13 @@ class DataLoader:
         Returns:
             user attribute submatrix
         """
-        return self.user_attr.iloc[user_array]
+        return self.user_attr[user_array]
 
 
     def get_item_attributes(self, item_array):
         """get the item attributes matrixs
+
+        May not be used.
 
         Args:
             item_array - numpy array of items to featch data for
@@ -158,3 +160,25 @@ class DataLoader:
             size of train 
         """
         return len(self.train_pos)
+
+    def get_test_valid_dataset(self, is_test=False):
+        """get test or valid dataset
+
+        Args:
+            is_test - [bool] whether to test or valid
+
+        Return:
+            user_id_list - [list of int] the list of user id used for testing/validation
+            ground_truth_list - [list of list] the ground truth
+        """
+        assert self.valid_set < len(self.test_instances), "Big valid set!" 
+        if not is_test:
+            test_uid_set = list(self.test_instances.keys())
+            user_id_list = np.random.choice(test_uid_set, self.valid_set,
+                replace=False)
+        else:
+            user_id_list = list(self.test_instances.keys())
+
+        ground_truth_list = [self.test_instances[x] for x in ret_user_list]
+
+        return user_id_list, ground_truth_list

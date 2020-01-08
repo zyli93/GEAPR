@@ -53,6 +53,8 @@ DATE_DFL = "2019-12-01 00:00:01"
 NAME_DFL = "No Name Business"
 EMPTY_CATS = 'NoCategories'
 
+ATTR_CONFIG = "configs/user_attr_discrete.txt"
+
 # Global mappings
 
 
@@ -110,7 +112,8 @@ def extract_user_attr(city):
     print("\t[user] saving dataframe to {}".format(OUTPUT_DIR))
     df_user_profile.to_csv(
         OUTPUT_DIR+"{}/processed_city_user_profile.csv".format(city), index=False)
-    dump_pkl(path=OUTPUT_DIR+"{}/processed_city_user_profile.pkl", obj=user_data_pkl)
+    dump_pkl(path=OUTPUT_DIR+"{}/processed_city_user_profile.pkl".format(city), 
+        obj=user_data_pkl)
 
     return df_nonzero
 
@@ -185,8 +188,10 @@ def extract_business_attr(city):
     return df_nonzero
 
 
-def discretize_field_attr(c, num_bkt):
+def discretize_field_attr(city, num_bkt):
     """Discretize continuous fields to
+
+    Starting from 1 instead of 0
 
     Args:
 
@@ -199,21 +204,60 @@ def discretize_field_attr(c, num_bkt):
     avg_stars,cool_score,elite_count,fans_count,funny_score,review_count,
     useful_score,yelping_years
     """
+    with open(ATTR_CONFIG, "r") as fin:
+        lines = fin.readlines()
+        discrete_attrs = set([x.strip() for x in lines])
+
     print("\t[user] discretize - loading user attrs")
-    df = pd.read_csv(INPUT_DIR + "{}/processed_city_user_profile.csv".format(c))
-    cols_val_range = dict()
+    df = pd.read_csv(INPUT_DIR + "{}/processed_city_user_profile.csv".format(city))
+    cols_disc_info = dict()
+    distinct_ft_count = 1
+    distinct_cols_list = []
+
+    distinct_df_col_names = []
+    distinct_df_cols = []
+
     for col in df.columns:
-        max_val, min_val = df[col].max(), df[col].min()
-        gap = (max_val - min_val) / num_bkt
+        # treat attribute as discrete variable
+        if col in discrete_attrs:
+            num_vals = df[col].unique()
+            vals_map = dict(zip(num_vals, range(0, len(num_vals))))
+            distinct_df_col_names.append(col+"_d_dist")
+            distinct_df_cols.append(
+                df[col].apply(lambda x: vals_map(x)+distinct_ft_count))
+            # df.assign(col+"_dist", lambda x: vals_map(x)+distinct_ft_count)
+            entry = {"bucket": False,
+                    "value_map": vals_maps, "count": num_vals}
+            distinct_ft_count += num_vals
 
+        # treat attribute as continuous variable
+        else:
+            max_val, min_val = df[col].max(), df[col].min()
+            gap = (max_val - min_val) / num_bkt
+            distinct_df_col_names.append(col+"_c_dist")
+            distinct_df_cols.append(
+                df[col].apply(lambda x: int(((x-min_val) // gap + distinct_ft_count))))
+            # df.assign(col + "_dist", lambda x: int((x // gap + distinct_ft_count)))
+            entry = {"bucket": True,
+                    "max_val": max_val, "min_val": min_val, "count": num_bkt,
+                    "min_disc_token": distinct_ft_count,
+                    "max_disc_token": distinct_ft_count + num_bkt}
+            distinct_ft_count += num_bkt
 
+        cols_disc_info[col]  = entry
+        
 
+    df_disc = pd.DataFrame(data=dict(zip(distinct_df_col_names, distinct_df_cols)))
+    print("\t[user] discretize - saving dist. attr. and info to {}".format(OUTPUT_DIR))
+    df_disc.to_csv(OUTPUT_DIR + "{}/processed_city_user_profile_dist.csv".format(city),
+        index=False)
+    dump_pkl(OUTPUT_DIR + "{}/cols_disc_info.pkl".format(city), cols_disc_info)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 1 + 1:
+    if len(sys.argv) < 2 + 1:
         print("python {} [city] [bucket_num]".format(sys.argv[0]))
-        raise ValueError("Invalid input")
+        raise ValueError("invalid input")
 
     city = sys.argv[1]
     num_bkt = int(sys.argv[2])
@@ -230,10 +274,9 @@ if __name__ == "__main__":
 
         print("[attribute extractor] attribute to discrete values user")
         discretize_field_attr(c, num_bkt)
-        # TODO 
 
-        # Note: 
-        #   Did not implement business attribute extraction
+        # note: 
+        #   did not implement business attribute extraction
 
         # print("[attribute extractor] building business attributes {}".format(c))
         # extract_business_attr(c)

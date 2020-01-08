@@ -42,8 +42,8 @@ flags.DEFINE_string('dataset', 'yelp', 'Input dataset name')
 flags.DEFINE_string('yelp_city', 'lv', 'City data subset of yelp')
 flags.DEFINE_integer('save_per_iter', 1000, 'Number of iterations per save.')
 flags.DEFINE_integer('log_per_iter', 200, "Number of iterations per log.")
-flags.DEFINE_bool('reshuffle', False, "Re-shuffle training data.")  # TODO: keep this?
-flags.DEFINE_integer('negative_sample_ratio", 3, "Negative sample ratio")
+flags.DEFINE_integer('negative_sample_ratio', 3, "Negative sample ratio")
+flags.DEFINE_integer('valid_set_size', 64, "Validation set size")
 
 # Hyperparam - Optimization
 flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
@@ -58,7 +58,6 @@ flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
 flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
 flags.DEFINE_integer("num_total_item", None, "Number of total items.")
 flags.DEFINE_integer("num_total_user", None, "Number of total users.")
-flags.DEFINE_integer("num_user_attr", None, "Number of user attributes")
 
 # Model option
 flags.DEFINE_string("corr_metric", "cos", "Correlation metrics for centroids.")  # "cos", "log"
@@ -68,15 +67,14 @@ flags.DEFINE_float("corr_weight", 0.1, "Correlation cost weight")
 flags.DEFINE_list('ae_layers', None, "[comma sep. list] Structural context encoder layers.")
 
 # Graph Attention Network
-# TODO
+# TODO: gat head numbers
 flags.DEFINE_int('gat_nheads', 1, "Number of heads in GAT")
 flags.DEFINE_float('gat_ft_dropout', 0.4, "Dropout rate of GAT feedforward net")
 flags.DEFINE_float('gat_coef_dropout', 0.4, "Dropout rate of GAT coefficient mat")
 
 
-# Attentive Factorization Machine, TODO: fill in the following
-flags.DEFINE_list("afm_", 0.0, "xxx")
 flags.DEFINE_bool("afm_dropout", False, "Whether to use dropout in attentional FM")
+flags.DEFINE_integer("afm_num_user_attr", None, "Number of user attributes")
 
 FLAGS = flags.FLAGS
 
