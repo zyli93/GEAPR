@@ -59,10 +59,12 @@ def parse_ae_layers(struct_str):
 
 
 def check_flags(f):
+    """check validity of a few flag options and parse layers"""
     assert f.dataset in ["ml", "yelp"], "`dataset` should be `ml` or `yelp`"
     assert f.corr_metric in ["cos", "log"], "`corr_metric` should be `cos` or `log`"
     assert f.ctrd_act_func in ACT_FUNC, "`ctrd_act_func` should be `tanh`, `relu`, and `lrelu`"
     f.ae_layers = [int(x) for x in f.mlp_layers]
+    return 
 
 
 def get_activation_func(func_name):

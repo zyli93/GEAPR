@@ -54,17 +54,14 @@ flags.DEFINE_integer('random_seed', 723, 'Random Seed.')
 flags.DEFINE_integer('embedding_dim', 64, 'Hidden embedding size.')
 flags.DEFINE_integer('rep_dim', 32, 'Internal representation dimensions.')
 flags.DEFINE_float("tao", 0.2, "Temperature constant!")
-flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
-flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
 flags.DEFINE_integer("num_total_item", None, "Number of total items.")
 flags.DEFINE_integer("num_total_user", None, "Number of total users.")
 
-# Model option
-flags.DEFINE_string("corr_metric", "cos", "Correlation metrics for centroids.")  # "cos", "log"
 flags.DEFINE_float("corr_weight", 0.1, "Correlation cost weight")
 
 # Auto Encoder
 flags.DEFINE_list('ae_layers', None, "[comma sep. list] Structural context encoder layers.")
+flags.DEFINE_float("ae_weight", 0.1, 
 
 # Graph Attention Network
 # TODO: gat head numbers
@@ -72,9 +69,13 @@ flags.DEFINE_int('gat_nheads', 1, "Number of heads in GAT")
 flags.DEFINE_float('gat_ft_dropout', 0.4, "Dropout rate of GAT feedforward net")
 flags.DEFINE_float('gat_coef_dropout', 0.4, "Dropout rate of GAT coefficient mat")
 
-
 flags.DEFINE_bool("afm_dropout", False, "Whether to use dropout in attentional FM")
 flags.DEFINE_integer("afm_num_user_attr", None, "Number of user attributes")
+
+# Centroid
+flags.DEFINE_string("ctrd_activation", None, "Activation function of centroid func")
+flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
+flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
 
 FLAGS = flags.FLAGS
 

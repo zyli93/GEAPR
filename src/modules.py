@@ -130,8 +130,8 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
         return afm, attn_out
 
 
-def centroid(input_features, n_centroid, emb_size, tao, name_scope, centroid_name, 
-        corr_metric, regularizer=None, activation=None):
+def centroid(input_features, n_centroid, emb_size, tao, name_scope, 
+        regularizer=None, activation=None):
     """Model the centroids for users/items
 
     Centroids mean interests for users and categories for items
@@ -147,8 +147,6 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope, centroid_nam
         emb_size - the embedding size
         tao - [float] the temperature hyper-parameter
         name_scope - the name_scope of the current component
-        centroid_name - the name of the centroid/interest weights
-        corr_metric - metrics to regularize the centroids/interests
         activation - [string] of activation functions
 
     Returns:
@@ -166,38 +164,31 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope, centroid_nam
 
         # if `activation` given, pass through activation func
         if activation:
-            ft_mul = activation(ft_mul)
+            activation_func = get_activation_func(activation)
+            ft_mul = activation_func(ft_mul)
 
         # apply temperature and then softmax
-        logits = tf.nn.softmax(ft_mul / tao, axis=-1)
+        logits = tf.nn.softmax(ft_mul / tao, axis=-1)  # (b,c)
 
         # attentional pooling
-        output = tf.matmul(, logits, name="attention_pooling")
+        output = tf.matmul(logits, centroids)  # (b, d)
 
-        with tf.name_scope("correlation_cost") as dist_scope:
-            """
-                two ways for reduce correlation for centroids:
-                    1. Cosine of cosine matrix
-                    2. Log of inner product
-            """
+        # cosine cost
+        numerator = tf.square(tf.matmul(centroids, centroids, transpose_b=True)) # (c,c)
+        row_sqr_sum = tf.reduce_sum(tf.square(ctrs), axis=1, keepdims=True)  # (c,1)
+        rss_sqrt = tf.sqrt(row_sqr_sum)  # (c, 1) element-wise sqrt
+        denominator = tf.matmul(rss_sqrt, rss_sqrt, transpose_b=True)  # (c,c)
+        corr_cost = tf.truediv(numerator, denominator")
 
-            # cosine cost
-            if corr_metric == "cos":
-                numerator = tf.square(tf.matmul(ctrs, ctrs, transpose_b=True))
-                row_sqr_sum = tf.reduce_sum(
-                    tf.square(ctrs), axis=1, keepdims=True)  # (c,1)
-                denominator = tf.matmul(row_sqr_sum, row_sqr_sum, transpose_b=True)
-                corr_cost = 0.5 * tf.truediv(numerator, denominator, name="corr_cost_cos")
+        # inner product cost, n
+        # else:
+        #     mask = tf.ones(shape=(n_centroid, n_centroid), dtype=tf.float32)
+        #     mask -= tf.eye(num_rows=n_centroid, dtype=tf.float32)
+        #     inner = tf.matmul(ctrs, ctrs, transpose_b=True)
+        #     corr_cost = tf.multiply(mask, inner)
+        #     corr_cost = 0.5 * tf.reduce_sum(tf.square(corr_cost), name="corr_cost_log")
 
-            # inner product cost
-            else:
-                mask = tf.ones(shape=(n_centroid, n_centroid), dtype=tf.float32)
-                mask -= tf.eye(num_rows=n_centroid, dtype=tf.float32)
-                inner = tf.matmul(ctrs, ctrs, transpose_b=True)
-                corr_cost = tf.multiply(mask, inner)
-                corr_cost = 0.5 * tf.reduce_sum(tf.square(corr_cost), name="corr_cost_log")
-
-            return output, corr_cost
+        return output, corr_cost
 
 
 def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_size,

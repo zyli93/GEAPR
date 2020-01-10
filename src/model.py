@@ -119,25 +119,15 @@ class IRSModel:
 
         # TODO: re-write the centroid functions
 
-        ctrdU, corr_costU = centroid(hidden_enc=embU,
-                                     n_centroid=F.user_n_ctrd,
-                                     emb_size=F.embedding_size,
-                                     tao=F.tao,
-                                     name_scope="user_attn_pool",
-                                     var_name="user_centroids",
-                                     corr_metric=F.corr_metric,
-                                     activation=F.ctrd_act_func,
-                                     regularizer=reger)
+        ctrdU, corr_costU = centroid(input_features=user_emb, 
+            n_centroid=self.F.num_user_ctrd, emb_size=self.F.embedding_size,
+            tao=self.F.tao, name_scope="user_centroids", 
+            activation=self.F.ctrd_activation, regularizer=reger)
 
-        ctrdI, corr_costI = centroid(hidden_enc=embI,
-                                     n_centroid=F.item_n_ctrd,
-                                     emb_size=F.embedding_size,
-                                     tao=F.tao,
-                                     name_scope="item_attn_pool",
-                                     var_name="item_centroids",
-                                     corr_metric=F.corr_metric,
-                                     activation=F.ctrd_act_func,
-                                     regularizer=reger)
+        ctrdI, corr_costI = centroid(input_features=item_emb, 
+            n_centroid=self.F.num_item_ctrd, emb_size=self.F.embedding_size,
+            tao=self.F.tao, name_scope="item_centroids", 
+            activation=self.F.ctrd_activation, regularizer=reger)
 
         # TODO:
         # Notes: autoencoder does not return reg loss,
@@ -149,15 +139,23 @@ class IRSModel:
         #       Losses, TODO
         # ======================
 
-        # TODO: ranking loss, binary loss
+        # TODO: ranking loss
 
-        loss = pred_loss1  # prediction loss
-        loss += F.ae_weight * (ae_lossU + ae_lossI)  # auto encoder reconstruction loss
-        loss += F.corr_weight * (corr_costU + corr_costI)  # centroids/interests correlation loss
-        loss += tf.losses.get_regularization_losses()  # get all regularization
+        # TODO: binary loss
+
+        
+        # auto encoder reconstruction loss
+        loss += self.F.ae_recon_loss_weight * (ae_lossU + ae_lossI) 
+
+        # centroids/interests correlation loss
+        loss += self.F.ctrd_corr_weight * (corr_costU + corr_costI)  
+
+        # get all regularization
+        loss += tf.losses.get_regularization_losses()  
+
+        # TODO: correct way to update loss
 
         self.loss = loss
-
         self.train_op = self.optimizer.minimize(self.loss,
                                                 global_step=self.global_step)
         # ======================
