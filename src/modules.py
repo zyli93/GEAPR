@@ -130,8 +130,8 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
         return afm, attn_out
 
 
-def centroid(hidden_enc, n_centroid, emb_size, tao, name_scope, var_name, corr_metric,
-             regularizer=None, activation=None):
+def centroid(input_features, n_centroid, emb_size, tao, name_scope, centroid_name, 
+        corr_metric, regularizer=None, activation=None):
     """Model the centroids for users/items
 
     Centroids mean interests for users and categories for items
@@ -142,12 +142,12 @@ def centroid(hidden_enc, n_centroid, emb_size, tao, name_scope, var_name, corr_m
         c - centroid_size
 
     Args:
-        hidden_enc - the hidden representation of mini-batch matrix, (b,d)
+        input_features - the hidden representation of mini-batch matrix, (b,d)
         n_centroid - number of centroids/interests, (c,d)
         emb_size - the embedding size
         tao - [float] the temperature hyper-parameter
         name_scope - the name_scope of the current component
-        var_name - the name of the centroid/interest weights
+        centroid_name - the name of the centroid/interest weights
         corr_metric - metrics to regularize the centroids/interests
         activation - [string] of activation functions
 
@@ -158,29 +158,21 @@ def centroid(hidden_enc, n_centroid, emb_size, tao, name_scope, var_name, corr_m
 
         # create centroids/interests variables
         with tf.variable_scope(name_scope) as var_scope:
-            ctrs = tf.get_variable(shape=[n_centroid, emb_size],
-                                   dtype=tf.float32,
-                                   name=var_name,
-                                   regularizer=regularizer)  # (c,d)
+            centroids = tf.get_variable(shape=[n_centroid, emb_size], dtype=tf.float32,
+                name=var_name, regularizer=regularizer)  # (c,d)
 
-        with tf.name_scope("compute_aggregation") as comp_scope:
-            # compute the logits
-            outer = tf.matmul(hidden_enc, ctrs, transpose_b=True,
-                              name="hemb_ctr_outer")  # (b,c)
+        # compute the logits
+        ft_mul = tf.matmul(input_features, centroids, transpose_b=True)  # (b,c)
 
-            # if `activation` given, pass through activation func
-            if activation:
-                outer = get_activation_func(activation)\
-                    (outer, name="pre_temperature_logits")
+        # if `activation` given, pass through activation func
+        if activation:
+            ft_mul = activation(ft_mul)
 
-            # apply temperature parameter
-            outer = outer / tao
+        # apply temperature and then softmax
+        logits = tf.nn.softmax(ft_mul / tao, axis=-1)
 
-            # take softmax
-            logits = tf.nn.softmax(outer, axis=-1, name="temperature_softmax")
-
-            # attentional pooling
-            output = tf.matmul(hidden_enc, logits, name="attention_pooling")
+        # attentional pooling
+        output = tf.matmul(, logits, name="attention_pooling")
 
         with tf.name_scope("correlation_cost") as dist_scope:
             """
