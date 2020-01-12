@@ -29,7 +29,7 @@ class DataLoader:
                 - testing instance positive sample
             - feature information
                 - attribute information (user/item)
-                - user-friendship graph (uf_graph)
+                - user-friendship graph, adj (uf_graph)
                 - user-structure-context graph (usc_graph)
 
         Args:
@@ -84,6 +84,9 @@ class DataLoader:
     def get_train_batch_iterator(self):
         """Create a train batch data iterator
 
+        Note:
+            1. RESHAPE to match the placeholder!
+
         Yield:
             (iterator) of the dataset
             i - the index of the returned batch
@@ -91,7 +94,7 @@ class DataLoader:
             batch_items_pos - (batch_size, ) batch of positive items
             batch_items_neg - (batch_size, self.nsr) batch of negative items
         """
-        # define negagive sample function
+        # define negagive sample function: nsr neg sample for each pos item
         neg_sample_func = lambda x: np.random.choice(
             self.train_neg[x], size=self.nsr, replace=True)
 
@@ -99,9 +102,12 @@ class DataLoader:
         total_batch = len(data) // self.f.batch_size
         for i in range(total_batch):
             batch = self.train_pos[i * bs: (i+1) * bs]
-            batch_users = batch_pos[:, 0]
-            batch_items_pos = batch_pos[:, 1]
-            batch_items_neg = np.array([neg_sample_func[x] for x in batch_pos_users])
+            batch_users = batch_pos[:, 0].reshape(-1 ,1)
+            batch_items_pos = batch_pos[:, 1].reshape(-1, 1)
+            # batch_items_neg shape: (batch_size*nsr, 1)
+            batch_items_neg = np.array(
+                [neg_sample_func[x] for x in batch_users]).reshape(-1, 1)
+
             yield (i, batch_users, batch_items_pos, batch_items_neg)
 
 
@@ -139,7 +145,7 @@ class DataLoader:
     def get_item_attributes(self, item_array):
         """get the item attributes matrixs
 
-        May not be used.
+        [Not used]
 
         Args:
             item_array - numpy array of items to featch data for
@@ -167,7 +173,7 @@ class DataLoader:
             user_id_list - [list of int] the list of user id used for testing/validation
             ground_truth_list - [list of list] the ground truth
         """
-        assert self.valid_set < len(self.test_instances), "Big valid set!" 
+        assert self.valid_set < len(self.test_instances), "Big valid set!"
         if not is_test:
             test_uid_set = list(self.test_instances.keys())
             user_id_list = np.random.choice(test_uid_set, self.valid_set,

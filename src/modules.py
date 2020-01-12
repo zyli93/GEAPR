@@ -17,39 +17,39 @@ def autoencoder(input_features, layers, name_scope, regularizer=None, initialize
 
     Args:
         input_features - raw input structural context 
-        layers - the structure of enc and dec.
-                    [raw dim, hid1_dim, ..., hidk_dim, out_dim]
+        layers - the layers of enc and dec. [hid1_dim, ..., hidk_dim, out_dim]
         scope - name_scope of the ops within the function
         regularizer - the regularizer
 
     Returns:
         output_feature - the output features
-        recon_loss - reconstruction loss 
+        recon_loss - reconstruction loss
     """
 
     with tf.name_scope(name_scope) as scope:
         features = input_features
+        restore_dim = int(features.shape[1])
 
         # encoder
-        for i in range(len(layers) - 1):
-            features = tf.layers.dense(inputs=features, units=layers[i+1],
+        for i in range(len(layers)):
+            features = tf.layers.dense(inputs=features, units=layers[i],
                 activation=tf.nn.relu, use_bias=True,
                 kernel_regularizer=regularizer, kernel_initializer=initializer,
                 bias_regularizer=regularizer, name="usc_enc_{}".format(i))
 
         # encoded hidden representation
-        hidden_feature = feature
+        hidden_feature = feature  # (b, rep_dim)
 
         # decoder
-        rev_layers = layers[::-1]
-        for i in range(1, len(rev_layers) - 2):
-            features = tf.layers.dense(inputs=features, units=rev_layers[i+1],
+        rev_layers = layers[::-1]  # [out, h_dim_k, ..., h_dim_1]
+        for i in range(1, len(rev_layers)):
+            features = tf.layers.dense(inputs=features, units=rev_layers[i],
                 activation=tf.nn.relu, use_bias=True,
                 kernel_regularizer=regularizer, kernel_initializer=initializer,
                 bias_regularizer=regularizer, name="usc_dec_{}".format(i))
 
         # last layer to reconstruct
-        restore = tf.layers.dense(inputs=features, units=rev_layers[-1],
+        restore = tf.layers.dense(inputs=features, units=restore_dim,
                 activation=None, use_bias=True,
                 kernel_regularizer=regularizer, kernel_initializer=initializer,
                 bias_regularizer=regularizer, name="usc_reconstruct_layer")
@@ -165,7 +165,7 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope,
         # if `activation` given, pass through activation func
         if activation:
             activation_func = get_activation_func(activation)
-            ft_mul = activation_func(ft_mul)
+            ft_mul = activation(ft_mul)
 
         # apply temperature and then softmax
         logits = tf.nn.softmax(ft_mul / tao, axis=-1)  # (b,c)
@@ -173,20 +173,6 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope,
         # attentional pooling
         output = tf.matmul(logits, centroids)  # (b, d)
 
-        # cosine cost
-        numerator = tf.square(tf.matmul(centroids, centroids, transpose_b=True)) # (c,c)
-        row_sqr_sum = tf.reduce_sum(tf.square(ctrs), axis=1, keepdims=True)  # (c,1)
-        rss_sqrt = tf.sqrt(row_sqr_sum)  # (c, 1) element-wise sqrt
-        denominator = tf.matmul(rss_sqrt, rss_sqrt, transpose_b=True)  # (c,c)
-        corr_cost = tf.truediv(numerator, denominator")
-
-        # inner product cost, n
-        # else:
-        #     mask = tf.ones(shape=(n_centroid, n_centroid), dtype=tf.float32)
-        #     mask -= tf.eye(num_rows=n_centroid, dtype=tf.float32)
-        #     inner = tf.matmul(ctrs, ctrs, transpose_b=True)
-        #     corr_cost = tf.multiply(mask, inner)
-        #     corr_cost = 0.5 * tf.reduce_sum(tf.square(corr_cost), name="corr_cost_log")
 
         return output, corr_cost
 
@@ -343,6 +329,36 @@ def get_embeddings(vocab_size, num_units, name_scope, zero_pad=False):
     return embeddings
 
 
+def centroid_corr(centroid_mat, name_scope):
+    """Compute centroidj correlations to minimize
+
+    Args:
+        centroid matrix - the entire matrix of centroids
+        name_scope - name scope
+
+    Returns:
+        the correlations of centroid
+    """
+
+    with tf.name_scope(name_scope) as scope:
+        # cosine cost
+        numerator = tf.square(tf.matmul(centroids, centroids, transpose_b=True)) # (c,c)
+        row_sqr_sum = tf.reduce_sum(tf.square(ctrs), axis=1, keepdims=True)  # (c,1)
+        rss_sqrt = tf.sqrt(row_sqr_sum)  # (c, 1) element-wise sqrt
+        denominator = tf.matmul(rss_sqrt, rss_sqrt, transpose_b=True)  # (c,c)
+        corr_cost = tf.truediv(numerator, denominator)
+
+    # inner product cost, n
+    # else:
+    #     mask = tf.ones(shape=(n_centroid, n_centroid), dtype=tf.float32)
+    #     mask -= tf.eye(num_rows=n_centroid, dtype=tf.float32)
+    #     inner = tf.matmul(ctrs, ctrs, transpose_b=True)
+    #     corr_cost = tf.multiply(mask, inner)
+    #     corr_cost = 0.5 * tf.reduce_sum(tf.square(corr_cost), name="corr_cost_log")
+
+    return corr_cost
+
+
 # ======== not used ==========
 
 def mlp(raw_data, layers, name_scope, regularizer=None):
@@ -370,3 +386,4 @@ def mlp(raw_data, layers, name_scope, regularizer=None):
                 name="imp_enc_{}".format(len(layers)))
 
         return feature
+

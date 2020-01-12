@@ -12,7 +12,7 @@
 import os
 import tensorflow as tf
 from utils import build_msg, cr
-from rank_metrics import mean_average_precision, ndcg_at_k 
+from rank_metrics import mean_average_precision, ndcg_at_k
 
 
 def train(flags, model, dataloader):
@@ -58,12 +58,18 @@ def train(flags, model, dataloader):
         for epoch in range(F.epoch):
 
             # abbrevs: batch index, batch user, batch positive and negative items
+            # bI: scalar; bU: (batch_size,1)
+            # bP: (batch_size, 1); bN: (batch_size * nsr, 1)
             for bI, bU, bP, bN in trn_iter:
-                # TODO: create indices, values, shapes
                 bUf, bUsc = dataloader.get_user_graphs(bU)
                 bUattr = dataloader.get_user_attributes(bU)
+                print("print shape of bUf, bUsc, bUattr")
+                print(bUf.shape)
+                print(bUsc.shape)
+                print(bUattr)
 
                 # run training operation
+                # TODO: finish the correct alternative optimization
                 gs, loss = sess.run(
                     fetches=[model.global_step, model.loss],
                     feed_dict={
@@ -110,6 +116,7 @@ def validation(model, sess, epoch, dataloader):
     # TODO: implement me
     # TODO: implement validation batch sampler
     # TODO: 
+
 
 def evaluate(model, dataloader):
     """ Evaluation function

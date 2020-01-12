@@ -19,6 +19,7 @@
 
     NOTES:
         1. train/test/dev ratios have been pre-set in data preparation
+        2. remember to test if ae_layers have been changed to integers
 """
 
 # from scipy.sparse import *
@@ -56,12 +57,13 @@ flags.DEFINE_integer('rep_dim', 32, 'Internal representation dimensions.')
 flags.DEFINE_float("tao", 0.2, "Temperature constant!")
 flags.DEFINE_integer("num_total_item", None, "Number of total items.")
 flags.DEFINE_integer("num_total_user", None, "Number of total users.")
+# TODO: unify embedding_dim and rep_dim!!!
 
-flags.DEFINE_float("corr_weight", 0.1, "Correlation cost weight")
 
 # Auto Encoder
-flags.DEFINE_list('ae_layers', None, "[comma sep. list] Structural context encoder layers.")
-flags.DEFINE_float("ae_weight", 0.1, 
+flags.DEFINE_list('ae_layers', None,
+    "[comma sep. list] Structural context AE layers. No RAW dim, no MID dim.")
+flags.DEFINE_float("ae_recon_loss_weight", 0.1, "AutoEncoder reconstruction loss")
 
 # Graph Attention Network
 # TODO: gat head numbers
@@ -69,6 +71,7 @@ flags.DEFINE_int('gat_nheads', 1, "Number of heads in GAT")
 flags.DEFINE_float('gat_ft_dropout', 0.4, "Dropout rate of GAT feedforward net")
 flags.DEFINE_float('gat_coef_dropout', 0.4, "Dropout rate of GAT coefficient mat")
 
+# Attentional Factorization Machine
 flags.DEFINE_bool("afm_dropout", False, "Whether to use dropout in attentional FM")
 flags.DEFINE_integer("afm_num_user_attr", None, "Number of user attributes")
 
@@ -76,6 +79,7 @@ flags.DEFINE_integer("afm_num_user_attr", None, "Number of user attributes")
 flags.DEFINE_string("ctrd_activation", None, "Activation function of centroid func")
 flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
 flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
+flags.DEFINE_float("corr_weight", 0.1, "Correlation cost weight")
 
 FLAGS = flags.FLAGS
 
@@ -101,7 +105,6 @@ def main():
     else:
         print("[IRS] start running evaluation ...")
         raise NotImplementedError("evaluation not implemented")
-    
 
 
 if __name__ == '__main__':
