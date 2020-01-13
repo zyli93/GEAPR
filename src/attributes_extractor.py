@@ -27,6 +27,9 @@
                 - name
         4. install user/business data features in table
 
+    TODO: 
+        user location by lat and lng
+
 
 """
 

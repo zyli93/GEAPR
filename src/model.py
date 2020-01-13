@@ -8,9 +8,7 @@ from modules import get_embeddings
 from modules import autoencoder, gatnet, attentional_fm
 from modules import centroid, centroid_corr
 
-# TODO: user location 
 # TODO: unify emb_dim and internal representation
-
 
 class IRSModel:
     def __init__(self, flags):
@@ -28,11 +26,11 @@ class IRSModel:
             shape=[None], dtype=tf.int32, name="batch_pos_item")
         self.batch_neg = tf.placeholder(
             shape=[None], dtype=tf.int32, name="batch_neg_item")  # (b*nsr)
-        self.batch_uf = tf.placeholder(shape=[None, self.F.num_total_user], 
+        self.batch_uf = tf.placeholder(shape=[None, self.F.num_total_user],
             dtype=tf.int32, name="batch_user_friendship")
-        self.batch_usc = tf.placeholder(shape=[None, self.F.num_total_item], 
+        self.batch_usc = tf.placeholder(shape=[None, self.F.num_total_item],
             dtype=tf.float32, name="batch_user_struc_ctx")
-        self.batch_uattr = tf.placeholder(shape=[None, self.F.num_user_attr], 
+        self.batch_uattr = tf.placeholder(shape=[None, self.F.num_user_attr],
             dtype=tf.int32, name="batch_user_attribute")
 
         # fetch-ables
@@ -111,7 +109,13 @@ class IRSModel:
         #      User embedding
         # ==========================
 
-        user_emb = uf_rep, usc_rep, uattr_rep # TODO: combine this
+        user_emb = tf.concat(values=[uf_rep, usc_rep, uattr_rep], axis=1)  # (b,3,d)
+        user_emb_attn = tf.layers.dense(user_emb, units=1, activation=tf.nn.relu,
+                use_bias=False, kernel_initializer=inilz)  # (b,3,1)
+        user_emb_attn = tf.nn.softmax(user_emb_attn, axis=1)  # (b,3,1)
+        user_emb = tf.squeeze(
+            tf.matmul(user_emb, user_emb_attn, transpose_a=True)) # (b,d)
+
 
         # ============================
         #   Centroids/Interests/Cost
@@ -141,17 +145,17 @@ class IRSModel:
         #       Losses
         # ======================
 
-        # TODO: loss part, whether to use activation?
-
         if self.F.loss_type == "ranking":
             # inner product + subtract
             pos_interactions = tf.reduce_sum(
-                tf.multiply(u_ct_rep, i_ct_reps[0]), axis=-1)
+                tf.multiply(u_ct_rep, i_ct_reps[0]), axis=-1)  # (b)
             pos_interactions = tf.tile(pos_interactions,
-                multiples=[self.F.negative_sample_ratio])  # (b*neg)
+                multiples=[self.F.negative_sample_ratio])  # (b*nsr)
 
+            u_ct_rep_tiled = tf.tile(u_ct_rep,
+                multiples=[self.F.negative_sample_ratio, 1]) # (b*nsr,d)
             neg_interactions = tf.reduce_sum(
-                tf.multiply(u_ct_rep, i_ct_reps[1]), axis=-1)  # (b*neg)
+                tf.multiply(u_ct_rep_tiled, i_ct_reps[1]), axis=-1)  # (b*nsr)
             final_loss = tf.reduce_sum(tf.subtract(neg_interactions, pos_interactions),
                 name="ranking_cls_loss")
 
@@ -159,12 +163,12 @@ class IRSModel:
             # inner product + sigmoid
             p_size = self.F.batch_size
             n_size = self.F.batch_size * self.F.negative_sample_ratio
-            ground_truth = tf.constant([1]*p_size + [0]*n_size, dtype=tf.int32,
+            ground_truth = tf.constant([1]*p_size+[0]*n_size, dtype=tf.int32,
                 shape=[p_size+n_size])  # (p_size+n_size)
 
             u_ct_rep_tiled = tf.tile(u_ct_rep,
                 multiples=[self.F.negative_sample_ratio, 1])
-            # shape: (b*neg_sample, d)
+            # shape: (b*nsr, d)
             i_ct_reps_concat = tf.concat(i_ct_reps, axis=0)
             logits = tf.reduce_sum(
                 tf.multiply(u_ct_rep_tiled, i_ct_reps_concat), axis=-1)
