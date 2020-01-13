@@ -102,11 +102,11 @@ class DataLoader:
         total_batch = len(data) // self.f.batch_size
         for i in range(total_batch):
             batch = self.train_pos[i * bs: (i+1) * bs]
-            batch_users = batch_pos[:, 0].reshape(-1 ,1)
-            batch_items_pos = batch_pos[:, 1].reshape(-1, 1)
+            batch_users = batch_pos[:, 0]
+            batch_items_pos = batch_pos[:, 1]
             # batch_items_neg shape: (batch_size*nsr, 1)
             batch_items_neg = np.array(
-                [neg_sample_func[x] for x in batch_users]).reshape(-1, 1)
+                [neg_sample_func[x] for x in batch_users]).flatten()
 
             yield (i, batch_users, batch_items_pos, batch_items_neg)
 

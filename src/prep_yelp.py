@@ -168,19 +168,18 @@ def city_clustering(city,
     """
     TODO: re-org this whole piece of docstring
 
-    city cluster create city-specific datasets
-    - User and business ids are replaced to new ones
-    - Friendships are filtered to users only in the same city
-    - business_min_count and user_min_count have to be set
-
-    narrow down information to specific cities
+    city cluster create city-specific datasets, 
+    that is, narrow down information to specific cities.
+    User and business ids are replaced to new ones.
+    Friendships are filtered to users only in the same city.
 
     Args:
-        city - city to work on
-        user_profile - all user profiles
-        business_profile - all business profiles
-        business_of_city - list of business in the city [dict]
-        interactions - all interactions
+        city - city 
+        user_min_count - threshold for users to be added into experiments.
+        business_min_count - threshold for businesses to be add into experiments.
+        user_profile - all user profiles.
+        business_profile - all business profiles.
+        interactions - all interactions among all cities.
         user_friendship - the users' friendship relations.
 
     Return:
@@ -210,10 +209,6 @@ def city_clustering(city,
           .format(business_min_count, user_min_count))
     b_counter = Counter(interactions_of_city.business)
     u_counter = Counter(interactions_of_city.user)
-
-    # rewrite using `assign` to avoid warnings
-    # interactions_of_city["b_count"] = interactions_of_city.business.apply(lambda x: b_counter[x])
-    # interactions_of_city["u_count"] = interactions_of_city.user.apply(lambda x: u_counter[x])
 
     interactions_of_city = interactions_of_city.assign(
         b_count=lambda x: x.business.map(b_counter))

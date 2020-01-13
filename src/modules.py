@@ -11,6 +11,7 @@
 
 import tensorflow as tf
 
+# TODO: unify rep_size over three difference modules
 
 def autoencoder(input_features, layers, name_scope, regularizer=None, initializer=None):
     """Auto encoder for structural context of users 
@@ -130,7 +131,7 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
         return afm, attn_out
 
 
-def centroid(input_features, n_centroid, emb_size, tao, name_scope, 
+def centroid(input_features, n_centroid, emb_size, tao, name_scope, var_name,
         regularizer=None, activation=None):
     """Model the centroids for users/items
 
@@ -147,15 +148,16 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope,
         emb_size - the embedding size
         tao - [float] the temperature hyper-parameter
         name_scope - the name_scope of the current component
+        var_name - the centroid tensor variable name
         activation - [string] of activation functions
 
     Returns:
-        loss - the loss generated from centroid function
+        output - (b, d)
     """
     with tf.name_scope(name_scope) as scope:
 
         # create centroids/interests variables
-        with tf.variable_scope(name_scope) as var_scope:
+        with tf.variable_scope(name_scope, resue=tf.AUTO_REUSE) as var_scope:
             centroids = tf.get_variable(shape=[n_centroid, emb_size], dtype=tf.float32,
                 name=var_name, regularizer=regularizer)  # (c,d)
 
@@ -173,8 +175,7 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope,
         # attentional pooling
         output = tf.matmul(logits, centroids)  # (b, d)
 
-
-        return output, corr_cost
+        return output
 
 
 def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_size,
@@ -194,7 +195,7 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_
         name_scope - name scope
         embedding_mat - [float32] (n, d) the whole embedding matrix of nodes
         adj_mat - [int] (b, n) adjacency matrix for the batch
-        input_indices - [int] (b) the inputs of batch user indices
+        input_indices - [int] (b, 1) the inputs of batch user indices
         num_nodes - [int] total number of nodes in the graph
         in_rep_size - [int] internal representation size
         n_heads - [int] number of heads
@@ -347,14 +348,6 @@ def centroid_corr(centroid_mat, name_scope):
         rss_sqrt = tf.sqrt(row_sqr_sum)  # (c, 1) element-wise sqrt
         denominator = tf.matmul(rss_sqrt, rss_sqrt, transpose_b=True)  # (c,c)
         corr_cost = tf.truediv(numerator, denominator)
-
-    # inner product cost, n
-    # else:
-    #     mask = tf.ones(shape=(n_centroid, n_centroid), dtype=tf.float32)
-    #     mask -= tf.eye(num_rows=n_centroid, dtype=tf.float32)
-    #     inner = tf.matmul(ctrs, ctrs, transpose_b=True)
-    #     corr_cost = tf.multiply(mask, inner)
-    #     corr_cost = 0.5 * tf.reduce_sum(tf.square(corr_cost), name="corr_cost_log")
 
     return corr_cost
 

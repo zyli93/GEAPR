@@ -8,6 +8,9 @@ from modules import get_embeddings
 from modules import autoencoder, gatnet, attentional_fm
 from modules import centroid, centroid_corr
 
+# TODO: user location 
+# TODO: unify emb_dim and internal representation
+
 
 class IRSModel:
     def __init__(self, flags):
@@ -20,17 +23,17 @@ class IRSModel:
 
         # Placeholders
         self.batch_user = tf.placeholder(
-            [None, 1], dtype=tf.int32, name="batch_user")
+            shape=[None], dtype=tf.int32, name="batch_user")
         self.batch_pos = tf.placeholder(
-            [None, 1], dtype=tf.int32, name="batch_pos_item")
+            shape=[None], dtype=tf.int32, name="batch_pos_item")
         self.batch_neg = tf.placeholder(
-            [None, self.F.negative_sample_ratio], dtype=tf.int32, name="batch_neg_item")
-        self.batch_uf = tf.placeholder(
-            [None, self.F.num_total_user], dtype=tf.int32, name="batch_user_friendship")
-        self.batch_usc = tf.placeholder(
-            [None, self.F.num_total_item], dtype=tf.float32, name="batch_user_struc_ctx")
-        self.batch_uattr = tf.placeholder(
-            [None, self.F.num_user_attr], dtype=tf.int32, name="batch_user_attribute")
+            shape=[None], dtype=tf.int32, name="batch_neg_item")  # (b*nsr)
+        self.batch_uf = tf.placeholder(shape=[None, self.F.num_total_user], 
+            dtype=tf.int32, name="batch_user_friendship")
+        self.batch_usc = tf.placeholder(shape=[None, self.F.num_total_item], 
+            dtype=tf.float32, name="batch_user_struc_ctx")
+        self.batch_uattr = tf.placeholder(shape=[None, self.F.num_user_attr], 
+            dtype=tf.int32, name="batch_user_attribute")
 
         # fetch-ables
         self.loss = None  # overall loss
@@ -89,8 +92,6 @@ class IRSModel:
         #      Attention FM
         # ===========================
         
-        # TODO: make sure this method can correctly fetch embeddings
-
         uattr_rep, afm_attn_output = attentional_fm(
             name_scope="afm", input_features=self.batch_uattr,
             emb_dim=self.F.embedding_dim, feat_size=self.F.XXX,
@@ -103,8 +104,8 @@ class IRSModel:
         item_emb_mat = get_embeddings(vocab_size=self.F.num_total_item,
             num_units=self.F.embedding_dim, name_scope="item_embedding_matrix", 
             zero_pad=True)
-        pos_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_pos)
-        neg_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_neg)
+        pos_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_pos)  # (b,d)
+        neg_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_neg)  # (b*nsr,d)
 
         # ==========================
         #      User embedding
@@ -116,79 +117,68 @@ class IRSModel:
         #   Centroids/Interests/Cost
         # ============================
 
-        # TODO: change to `u_ct_rep`: user_centroid_representation
-        # TODO: change to `ip_ct_rep` and `in_ct_rep` representation
-
         u_ct_rep = centroid(input_features=user_emb, 
             n_centroid=self.F.num_user_ctrd, emb_size=self.F.embedding_size,
-            tao=self.F.tao, name_scope="user_centroids", 
+            tao=self.F.tao, name_scope="centroids", var_name="user_centroids",
             activation=self.F.ctrd_activation, regularizer=reger) # (b,d)
 
-        # TODO: process pos_item_emb
-        ctrdI = centroid(input_features=item_emb, 
-            n_centroid=self.F.num_item_ctrd, emb_size=self.F.embedding_size,
-            tao=self.F.tao, name_scope="item_centroids", 
-            activation=self.F.ctrd_activation, regularizer=reger)  # TODO:shape?
+        i_ct_reps = []  # 0,pos; 1,neg
+        for x_item_emb in [pos_item_emb, neg_item_emb]:
+            tmp_ct_rep = centroid(input_features=tmp_item_emb,
+                n_centroid=self.F.num_item_ctrd, emb_size=self.F.embedding_size,
+                tao=self.F.tao, name_scope="centroids", var_name="item_centroids",
+                activation=self.F.ctrd_activation, regularizer=reger)
+            i_ct_reps.append(tmp_ct_rep)
 
-        # var_scope names are in centroids part
-        # TODO: check if this is the right way to get data
-        # TODO: add centroid penalty
-        with tf.variable_scope("user_attn_pool", reuse=tf.AUTO_REUSE):
-            self.user_centroids = tf.get_variable(
-                dtype=tf.float32, name="user_centroids")
+        with tf.variable_scope("centroids", reuse=tf.AUTO_REUSE):
+            self.user_centroids = tf.get_variable(name="user_centroids")
+            self.item_centroids = tf.get_variable(name="item_centroids")
 
-        with tf.variable_scope("item_attn_pool", reuse=tf.AUTO_REUSE):
-            self.item_centroids = tf.get_variable(dtype=tf.float32,
-                                                  name="item_centroids")
-
-        u_ct_corr_cost = centroid_corr(self.user_centroids, 
-            name_scope="user_centroid_corr_cost")
-        i_ct_corr_cost = centroid_corr(self.item_centroids, 
-            name_scope="item_centroid_corr_cost")
-
+        u_ct_corr_cost = centroid_corr(self.user_centroids)
+        i_ct_corr_cost = centroid_corr(self.item_centroids)
 
         # ======================
         #       Losses
         # ======================
 
+        # TODO: loss part, whether to use activation?
+
         if self.F.loss_type == "ranking":
             # inner product + subtract
-            pos_interactions = tf.reduce_sum(tf.multiply(ctrlU, ip_ct_rep), axis=-1)
-            # (b,1) ??  TODO check shape
+            pos_interactions = tf.reduce_sum(
+                tf.multiply(u_ct_rep, i_ct_reps[0]), axis=-1)
             pos_interactions = tf.tile(pos_interactions,
-                multiples=[self.F.negative_sample_ratio, 1])  # (b*neg, 1)
+                multiples=[self.F.negative_sample_ratio])  # (b*neg)
+
             neg_interactions = tf.reduce_sum(
-                tf.multiply(ctrlU, in_ct_rep), axis=-1)  # (b*neg, 1)
-            final_loss = tf.reduce_sum(tf.subtract(neg_interactions, pos_interactions))
+                tf.multiply(u_ct_rep, i_ct_reps[1]), axis=-1)  # (b*neg)
+            final_loss = tf.reduce_sum(tf.subtract(neg_interactions, pos_interactions),
+                name="ranking_cls_loss")
 
         elif self.F.loss_type == "binary":
             # inner product + sigmoid
             p_size = self.F.batch_size
             n_size = self.F.batch_size * self.F.negative_sample_ratio
-            ground_truth = tf.constant([1]*p_size+ [0]*n_size, dtype=tf.int32,
-                shape=[p_size+n_size, 1])  # (p_size+n_size, 1)
+            ground_truth = tf.constant([1]*p_size + [0]*n_size, dtype=tf.int32,
+                shape=[p_size+n_size])  # (p_size+n_size)
 
-            # TODO: make sure till here, everything is same shape
-            u_ct_rep_tile = tf.tile(u_ct_rep, 
+            u_ct_rep_tiled = tf.tile(u_ct_rep,
                 multiples=[self.F.negative_sample_ratio, 1])
             # shape: (b*neg_sample, d)
-            logits = tf.resuce_dum(tf.multiply(ctrlU_tile, ctrlI), axis=-1)
+            i_ct_reps_concat = tf.concat(i_ct_reps, axis=0)
+            logits = tf.reduce_sum(
+                tf.multiply(u_ct_rep_tiled, i_ct_reps_concat), axis=-1)
             final_loss = tf.nn.sigmoid_cross_entropy_with_logits(
                 labels=ground_truth, logits=logits, name="binary_cls_loss")
 
         else:
             raise ValueError("Specify loss type to be `ranking` or `binary`")
 
-        # now compute loss
+        # loss = final_loss + 
+        #        ae_reconstruction + centroid_correlation + regularization
         loss = final_loss
-
-        # auto encoder reconstruction loss
         loss += self.F.ae_recon_loss_weight * (ae_lossU + ae_lossI)
-
-        # centroids/interests correlation loss
         loss += self.F.ctrd_corr_weight * (u_ct_corr_cost + i_ct_corr_cost)
-
-        # get all regularization
         loss += tf.losses.get_regularization_losses()
 
         # TODO: correct way to update loss
