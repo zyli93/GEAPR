@@ -12,7 +12,7 @@
 import os
 import tensorflow as tf
 from utils import build_msg, cr
-from rank_metrics import mean_average_precision, ndcg_at_k
+from rank_metrics import mapk, ndcg_at_k
 
 
 def train(flags, model, dataloader):
@@ -69,21 +69,17 @@ def train(flags, model, dataloader):
                 print(bUattr)
 
                 # run training operation
-                # TODO: finish the correct alternative optimization
-                gs, loss = sess.run(
-                    fetches=[model.global_step, model.loss],
+                _, gs, loss = sess.run(
+                    fetches=[model.train_op, model.global_step, model.loss],
                     feed_dict={
                         model.batch_user: bU,
                         model.batch_pos: bP, model.batch_neg: bN,
-                        model.batch_uf: bUf, model.batch_usc: bUsc
-                    }
-                )
+                        model.batch_uf: bUf, model.batch_usc: bUsc} )
 
                 # print results and write to file
                 if gs % F.log_n_iter == 0:
 
                     # TODO: get map, ndcg
-                    # TODO: implement map and ndcg metrics
 
                     msg = build_msg(stage="Trn", ep=epoch, 
                         gs=gs, bi=bI, map_=map_, ndcg=ndcg)
@@ -111,9 +107,18 @@ def train(flags, model, dataloader):
     print("Training finished!")
 
 
-def validation(model, sess, epoch, dataloader):
+def validation(model, sess, dataloader, F):
     """run validation"""
     # TODO: implement me
+    val_uids, val_gt = dataloader.get_test_valid_dataset(is_test=False)
+
+    # TODO: feed models and get batch results
+
+    # TODO: mapk works with batch users
+
+    # TODO: return scores from the model!
+    map_k = mapk(actual, predicted, k=F.eval_k)
+    ndcg_k = ndcg_at_k(???)
 
 
 def evaluate(model, dataloader):
