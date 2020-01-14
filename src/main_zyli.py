@@ -45,6 +45,7 @@ flags.DEFINE_integer('save_per_iter', 1000, 'Number of iterations per save.')
 flags.DEFINE_integer('log_per_iter', 200, "Number of iterations per log.")
 flags.DEFINE_integer('negative_sample_ratio', 3, "Negative sample ratio")
 flags.DEFINE_integer('valid_set_size', 64, "Validation set size")
+flags.DEFINE_string("loss_type", "ranking", "Choose from `binary` and `ranking`")
 
 # Hyperparam - Optimization
 flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
@@ -53,7 +54,7 @@ flags.DEFINE_integer('random_seed', 723, 'Random Seed.')
 
 # Hyperparam - Model
 flags.DEFINE_integer('embedding_dim', 64, 'Hidden embedding size.')
-flags.DEFINE_integer('rep_dim', 32, 'Internal representation dimensions.')
+flags.DEFINE_integer('hid_rep_dim', 32, 'Internal representation dimensions.')
 flags.DEFINE_float("tao", 0.2, "Temperature constant!")
 flags.DEFINE_integer("num_total_item", None, "Number of total items.")
 flags.DEFINE_integer("num_total_user", None, "Number of total users.")
@@ -61,7 +62,7 @@ flags.DEFINE_integer("num_total_user", None, "Number of total users.")
 
 
 # Auto Encoder
-flags.DEFINE_list('ae_layers', None,
+flags.DEFINE_list('ae_layers', None, 
     "[comma sep. list] Structural context AE layers. No RAW dim, no MID dim.")
 flags.DEFINE_float("ae_recon_loss_weight", 0.1, "AutoEncoder reconstruction loss")
 
@@ -73,7 +74,7 @@ flags.DEFINE_float('gat_coef_dropout', 0.4, "Dropout rate of GAT coefficient mat
 
 # Attentional Factorization Machine
 flags.DEFINE_bool("afm_dropout", False, "Whether to use dropout in attentional FM")
-flags.DEFINE_integer("afm_num_user_attr", None, "Number of user attributes")
+flags.DEFINE_integer("afm_num_total_user_attr", None, "Number of total user attributes")
 
 # Centroid
 flags.DEFINE_string("ctrd_activation", None, "Activation function of centroid func")

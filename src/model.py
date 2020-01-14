@@ -8,7 +8,6 @@ from modules import get_embeddings
 from modules import autoencoder, gatnet, attentional_fm
 from modules import centroid, centroid_corr
 
-# TODO: unify emb_dim and internal representation
 
 class IRSModel:
     def __init__(self, flags):
@@ -35,9 +34,7 @@ class IRSModel:
 
         # fetch-ables
         self.loss = None  # overall loss
-        self.predictions = None  # predictions of a batch
 
-        # 
         self.user_centroids, self.item_centroids = None, None  # ctrds
         self.train_op = None
 
@@ -63,76 +60,73 @@ class IRSModel:
         reglr = tf.contrib.layers.l2_regularizer(scale=F.regularization_weight)
         inilz = tf.contrib.layers.xavier_initializer()
 
-
         # ===========================
         #      Auto Encoders
         # ===========================
-
-        usc_rep = autoencoder(input_features=self.batch_usc,
+        usc_rep, ae_recons_loss = autoencoder(input_features=self.batch_usc,
             layers=self.F.ae_layers name_scope="user_struc_context_ae",
             regularizer=reglr, initializer=inilz)
 
         # ===========================
         #   Graph Attention Network
         # ===========================
-
         user_emb_mat = get_embeddings(vocab_size=self.F.num_total_user,
             num_units=self.F.embedding_size, name_scope="gat", zero_pad=True)
 
-        uf_rep = gatnet(name_scope="gat", embedding_mat=user_emb_mat,
+        uf_rep, self.uf_attns = gatnet(name_scope="gat", embedding_mat=user_emb_mat,
             adj_mat=self.batch_uf, input_indices=self.batch_user,
-            num_nodes=self.F.num_total_user, in_rep_size=self.F.rep_dim,
+            num_nodes=self.F.num_total_user, hid_rep_dim=self.F.hid_rep_dim,
             n_heads=self.F.gat_nheads, ft_drop=self.F.gat_ft_dropout,
             attn_drop=self.F.gat_coef_dropout)
-
 
         # ===========================
         #      Attention FM
         # ===========================
-        
-        uattr_rep, afm_attn_output = attentional_fm(
+        uattr_rep, self.uattr_attns = attentional_fm(
             name_scope="afm", input_features=self.batch_uattr,
-            emb_dim=self.F.embedding_dim, feat_size=self.F.XXX,
-            initializer=inilz, regularizer=reglr, dropout_keep=self.F.XXX)
+            emb_dim=self.F.embedding_dim, feat_size=self.F.afm_num_total_user_attr,
+            initializer=inilz, regularizer=reglr, dropout_keep=self.F.afm_dropout)
 
         # ===========================
         #      Item embedding
         # ===========================
-
         item_emb_mat = get_embeddings(vocab_size=self.F.num_total_item,
-            num_units=self.F.embedding_dim, name_scope="item_embedding_matrix", 
+            num_units=self.F.hid_rep_dim, name_scope="item_embedding_matrix", 
             zero_pad=True)
-        pos_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_pos)  # (b,d)
-        neg_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_neg)  # (b*nsr,d)
+        pos_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_pos)  # (b,h)
+        neg_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_neg)  # (b*nsr,h)
 
         # ==========================
         #      User embedding
         # ==========================
-
-        user_emb = tf.concat(values=[uf_rep, usc_rep, uattr_rep], axis=1)  # (b,3,d)
+        # TODOL normalization?
+        user_emb = tf.concat(values=[uf_rep, usc_rep, uattr_rep], axis=1)  # (b,3,h)
         user_emb_attn = tf.layers.dense(user_emb, units=1, activation=tf.nn.relu,
                 use_bias=False, kernel_initializer=inilz)  # (b,3,1)
         user_emb_attn = tf.nn.softmax(user_emb_attn, axis=1)  # (b,3,1)
+        self.user_emb_agg_attn = tf.squeeze(user_emb_attn)  # (b,3), VIZ
         user_emb = tf.squeeze(
-            tf.matmul(user_emb, user_emb_attn, transpose_a=True)) # (b,d)
-
+            tf.matmul(user_emb, user_emb_attn, transpose_a=True)) # (b,h)
 
         # ============================
         #   Centroids/Interests/Cost
         # ============================
-
-        u_ct_rep = centroid(input_features=user_emb, 
-            n_centroid=self.F.num_user_ctrd, emb_size=self.F.embedding_size,
+        u_ct_rep, self.u_ct_logits = centroid(input_features=user_emb, 
+            n_centroid=self.F.num_user_ctrd, emb_size=self.F.hid_rep_dim,
             tao=self.F.tao, name_scope="centroids", var_name="user_centroids",
             activation=self.F.ctrd_activation, regularizer=reger) # (b,d)
 
         i_ct_reps = []  # 0,pos; 1,neg
+        i_ct_logits = []  # the centroid logits
         for x_item_emb in [pos_item_emb, neg_item_emb]:
-            tmp_ct_rep = centroid(input_features=tmp_item_emb,
-                n_centroid=self.F.num_item_ctrd, emb_size=self.F.embedding_size,
+            tmp_ct_rep, tmp_ct_logits = centroid(input_features=tmp_item_emb,
+                n_centroid=self.F.num_item_ctrd, emb_size=self.F.hid_rep_dim,
                 tao=self.F.tao, name_scope="centroids", var_name="item_centroids",
                 activation=self.F.ctrd_activation, regularizer=reger)
             i_ct_reps.append(tmp_ct_rep)
+            i_ct_logits.append(tmp_ct_logits)
+
+        self.pos_i_ct_logits, self.neg_i_ct_logits = i_ct_logits
 
         with tf.variable_scope("centroids", reuse=tf.AUTO_REUSE):
             self.user_centroids = tf.get_variable(name="user_centroids")
@@ -144,7 +138,6 @@ class IRSModel:
         # ======================
         #       Losses
         # ======================
-
         if self.F.loss_type == "ranking":
             # inner product + subtract
             pos_interactions = tf.reduce_sum(
@@ -153,7 +146,7 @@ class IRSModel:
                 multiples=[self.F.negative_sample_ratio])  # (b*nsr)
 
             u_ct_rep_tiled = tf.tile(u_ct_rep,
-                multiples=[self.F.negative_sample_ratio, 1]) # (b*nsr,d)
+                multiples=[self.F.negative_sample_ratio, 1]) # (b*nsr,h)
             neg_interactions = tf.reduce_sum(
                 tf.multiply(u_ct_rep_tiled, i_ct_reps[1]), axis=-1)  # (b*nsr)
             final_loss = tf.reduce_sum(tf.subtract(neg_interactions, pos_interactions),
@@ -178,10 +171,10 @@ class IRSModel:
         else:
             raise ValueError("Specify loss type to be `ranking` or `binary`")
 
-        # loss = final_loss + 
+        # loss = final_loss + reconstruction in ae
         #        ae_reconstruction + centroid_correlation + regularization
         loss = final_loss
-        loss += self.F.ae_recon_loss_weight * (ae_lossU + ae_lossI)
+        loss += self.F.ae_recon_loss_weight * ae_recons_loss
         loss += self.F.ctrd_corr_weight * (u_ct_corr_cost + i_ct_corr_cost)
         loss += tf.losses.get_regularization_losses()
 

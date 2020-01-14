@@ -65,6 +65,7 @@ def check_flags(f):
     assert f.ctrd_act_func in ACT_FUNC, "`ctrd_act_func` should be `tanh`, `relu`, and `lrelu`"
     f.ae_layers = [int(x) for x in f.ae_layers]
     f.ae_layers.append(f.rep_dim)
+    assert f.ae_layers[-1] == f.hid_rep_dim, "ae_layers last should equal `hid_rep_dim`"
     return
 
 

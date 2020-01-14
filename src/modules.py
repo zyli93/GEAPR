@@ -51,18 +51,18 @@ def autoencoder(input_features, layers, name_scope, regularizer=None, initialize
 
         # last layer to reconstruct
         restore = tf.layers.dense(inputs=features, units=restore_dim,
-                activation=None, use_bias=True,
-                kernel_regularizer=regularizer, kernel_initializer=initializer,
-                bias_regularizer=regularizer, name="usc_reconstruct_layer")
+            activation=None, use_bias=True, kernel_regularizer=regularizer, 
+            kernel_initializer=initializer, bias_regularizer=regularizer, 
+            name="usc_reconstruct_layer")
 
         # reconstruction loss
-        recon_loss = tf.nn.l2_loss(raw_data - restore,
-                                   name="recons_loss_{}".format(name_scope))
+        recon_loss = tf.nn.l2_loss(input_features - restore,
+            name="recons_loss_{}".format(name_scope))
 
     return hidden_feature, recon_loss
 
 
-def attentional_fm(name_scope, input_features, emb_dim, feat_size,
+def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim,
                    initializer=None, regularizer=None, dropout_keep=None):
     """attentional factorization machine for attribute feature extractions
 
@@ -72,12 +72,14 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
         b - batch_size
         k - number of fields
         d - embedding_size
+        h - hidden representation dimension
         |A| - total number of attributes
 
     Args:
         name_scope - [str]
         input_features - [int] (b, k) input discrete features
         emb_dim - [int] dimension of each embedding, d
+        hid_rep_dim - [int] hidden representation dimension 
         feat_size - [int] total number of distinct features (fields) for FM, A
         attr_size - [int] total number of fields , abbrev. k
         dropout_keep - [bool] whether to use dropout in AFM
@@ -95,14 +97,20 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
         element_wise_prod_list = []
 
         attn_W = tf.get_variable(name="attention_W", dtype=tf.float32,
-            shape=[emb_dim, emb_dim], initializer=initializer, regularizer=regularizer)
+            shape=[emb_dim, hid_rep_dim], initializer=initializer, 
+            regularizer=regularizer)
         attn_p = tf.get_variable(name="attention_p", dtype=tf.float32,
-            shape=[emb_dim], initializer=initializer, regularizer=regularizer)
+            shape=[hid_rep_dim], initializer=initializer, regularizer=regularizer)
         attn_b = tf.get_variable(name="attention_b", dtype=tf.float32,
-            shape=[emb_dim], initializer=initializer, regularizer=regularizer)
+            shape=[hid_rep_dim], initializer=initializer, regularizer=regularizer)
 
         for i in range(0, attr_size):
-        interactions = tf.reduce_sum(element_wise_prod, axis=2, 
+            for j in range(i+1, attr_size):
+                element_wise_prod_list.append(
+                    tf.multiply(uattr_emb[:, i, :], uattr_emb[:, j, :]))
+
+        element_wise_prod = tf.stack(element_wise_prod_list, axis=1)
+        interactions = tf.reduce_sum(element_wise_prod, axis=2,
             name="afm_interactions")  # b * (k*(k-1))
         num_interactions = attr_size * (attr_size - 1) / 2  # aka: k *(k-1)
 
@@ -110,17 +118,17 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
         attn_mul = tf.reshape(
             tf.matmul(tf.reshape(
                 element_wise_prod, shape=[-1, emb_dim]), attn_W),
-            shape=[-1, num_interactions, emb_dim])  # b * (k*k-1)) * d
+            shape=[-1, num_interactions, hid_rep_dim])  # b * (k*k-1)) * h
 
         attn_relu = tf.reduce_sum(
             tf.multiply(attn_p, tf.nn.relu(attn_mul + attn_b)), axis=2, keepdims=True)
-        # after relu/multiply: b*(k*(k-1))*d; 
+        # after relu/multiply: b*(k*(k-1))*h; 
         # after reduce_sum + keepdims: b*(k*(k-1))*1
 
-        attn_out = tf.nn.softmax(attn_relu)  # b*(k*(k-1)*d
+        attn_out = tf.nn.softmax(attn_relu)  # b*(k*(k-1)*h
 
         afm = tf.reduce_sum(tf.multiply(attn_out, element_wise_prod), axis=1, name="afm")
-        # afm: b*(k*(k-1))*d => b*d
+        # afm: b*(k*(k-1))*h => b*h
         if dropout_keep:
             afm = tf.nn.dropout_keep(afm, dropout_keep)
 
@@ -128,7 +136,7 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size,
 
         # TODO: first order feature not considered yet!
 
-        return afm, attn_out
+        return afm, attns
 
 
 def centroid(input_features, n_centroid, emb_size, tao, name_scope, var_name,
@@ -175,10 +183,10 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope, var_name,
         # attentional pooling
         output = tf.matmul(logits, centroids)  # (b, d)
 
-        return output
+        return output, logits
 
 
-def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_size,
+def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, hid_rep_dim,
         n_heads, ft_drop=0.0, attn_drop=0.0):
     """Graph Attention Network component for users/items
 
@@ -197,7 +205,7 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_
         adj_mat - [int] (b, n) adjacency matrix for the batch
         input_indices - [int] (b, 1) the inputs of batch user indices
         num_nodes - [int] total number of nodes in the graph
-        in_rep_size - [int] internal representation size
+        hid_rep_dim - [int] internal representation dimension
         n_heads - [int] number of heads
         ft_drop - feature dropout 
         attn_drop - attentional weight dropout (a.k.a., coef_drop)
@@ -214,7 +222,6 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_
     with tf.name_scop(name_scope) as scope:
 
         bias_mat = -1e9 * (1 - tf.cast(adj_mat, dtype=tf.float32))  # (b, d)
-
         hidden_features = []
         attns = []
 
@@ -222,7 +229,7 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_
             # (b, oz), (b, n)
             hid_feature, attn = gat_attn_head(
                 input_indices=input_indices, emb_lookup=embedding_mat, bias_mat=bias_mat,
-                output_size=in_rep_size, activation=tf.nn.relu, ft_drop=ft_drop,
+                output_size=hid_rep_dim, activation=tf.nn.relu, ft_drop=ft_drop,
                 coef_drop=attn_drop)
             hidden_features.append(hid_feature)
             attns.append(attn)
@@ -242,7 +249,7 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, in_rep_
         logits = tf.add_n(out) / n_heads[-1] 
         """
 
-        logits = tf.layers.conv1d(h_1, in_rep_size, 1, use_bias=False) # (b, oz)
+        logits = tf.layers.conv1d(h_1, hid_rep_dim, 1, use_bias=False) # (b, oz)
 
         return logits,  attns
 

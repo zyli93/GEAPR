@@ -114,8 +114,6 @@ def train(flags, model, dataloader):
 def validation(model, sess, epoch, dataloader):
     """run validation"""
     # TODO: implement me
-    # TODO: implement validation batch sampler
-    # TODO: 
 
 
 def evaluate(model, dataloader):

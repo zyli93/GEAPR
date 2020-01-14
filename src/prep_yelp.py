@@ -158,17 +158,9 @@ def parse_interactions():
     dump_pkl(PREPROCESS_DIR + "users_list.pkl", user_remained)
 
 
-def city_clustering(city,
-                    user_min_count,
-                    business_min_count,
-                    user_profile,
-                    business_profile,
-                    interactions,
-                    user_friendships):
-    """
-    TODO: re-org this whole piece of docstring
-
-    city cluster create city-specific datasets, 
+def city_clustering(city, user_min_count, business_min_count,
+        user_profile, business_profile, interactions, user_friendships):
+    """city cluster create city-specific datasets, 
     that is, narrow down information to specific cities.
     User and business ids are replaced to new ones.
     Friendships are filtered to users only in the same city.
