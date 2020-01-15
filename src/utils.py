@@ -22,12 +22,6 @@ ACT_FUNC = {
 
 OUTPUT_DIR = "./output/"
 
-"""TODO: delete later
-output - trial
-            - ckpt
-            - performance
-"""
-
 def create_dirs(f):
     """create directories
 

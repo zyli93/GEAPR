@@ -10,6 +10,7 @@
 """
 
 import os
+import numpy as np
 import tensorflow as tf
 from utils import build_msg, cr
 from rank_metrics import mapk, ndcg_at_k
@@ -72,9 +73,10 @@ def train(flags, model, dataloader):
                 _, gs, loss = sess.run(
                     fetches=[model.train_op, model.global_step, model.loss],
                     feed_dict={
-                        model.batch_user: bU,
+                        model.is_training=True, model.batch_user: bU,
                         model.batch_pos: bP, model.batch_neg: bN,
-                        model.batch_uf: bUf, model.batch_usc: bUsc} )
+                        model.batch_uf: bUf, model.batch_usc: bUsc,
+                        model.batch_uattr: bUattr} )
 
                 # print results and write to file
                 if gs % F.log_n_iter == 0:
@@ -108,17 +110,22 @@ def train(flags, model, dataloader):
 
 
 def validation(model, sess, dataloader, F):
-    """run validation"""
-    # TODO: implement me
-    val_uids, val_gt = dataloader.get_test_valid_dataset(is_test=False)
+    """run validation on sampled test sets"""
+    valU, val_gt = dataloader.get_test_valid_dataset(is_test=False)
+    val_uf, val_usc = dataloader.get_user_graphs(valU)
+    val_uattr = dataloader.get_user_attributes(valU)
 
-    # TODO: feed models and get batch results
+    # score (b, n+1)
+    scores = sess.run(fetches=[model.test_scores],
+        feed_dict={
+            model.is_training: False,
+            model.batch_user: valU, model.batch_uattr: val_uattr,
+            model.batch_uf: val_uf, model.batch_usc: bUsc} )
 
-    # TODO: mapk works with batch users
+    eval_dict = metrics_poi(ground_truth=val_gt, pred_scores=score, k_list=???)
 
-    # TODO: return scores from the model!
-    map_k = mapk(actual, predicted, k=F.eval_k)
-    ndcg_k = ndcg_at_k(???)
+    # TODO: set k as a list
+    
 
 
 def evaluate(model, dataloader):
@@ -133,6 +140,8 @@ def evaluate(model, dataloader):
     Return:
         msg - a message made report the message
     """
+
+    # TODO: implement me by batch
 
     return "empty msg"
 

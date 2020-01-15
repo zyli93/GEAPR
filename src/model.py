@@ -31,6 +31,8 @@ class IRSModel:
             dtype=tf.float32, name="batch_user_struc_ctx")
         self.batch_uattr = tf.placeholder(shape=[None, self.F.num_user_attr],
             dtype=tf.int32, name="batch_user_attribute")
+        self.is_train = tf.placeholder(
+            shape=[], dtype=tf.bool, name="whether is training")
 
         # fetch-ables
         self.loss = None  # overall loss
@@ -71,9 +73,11 @@ class IRSModel:
         #   Graph Attention Network
         # ===========================
         user_emb_mat = get_embeddings(vocab_size=self.F.num_total_user,
+            is_training=self.is_training,
             num_units=self.F.embedding_size, name_scope="gat", zero_pad=True)
 
-        uf_rep, self.uf_attns = gatnet(name_scope="gat", embedding_mat=user_emb_mat,
+        uf_rep, self.uf_attns = gatnet(
+            name_scope="gat", embedding_mat=user_emb_mat, is_training=self.is_training,
             adj_mat=self.batch_uf, input_indices=self.batch_user,
             num_nodes=self.F.num_total_user, hid_rep_dim=self.F.hid_rep_dim,
             n_heads=self.F.gat_nheads, ft_drop=self.F.gat_ft_dropout,
@@ -83,7 +87,7 @@ class IRSModel:
         #      Attention FM
         # ===========================
         uattr_rep, self.uattr_attns = attentional_fm(
-            name_scope="afm", input_features=self.batch_uattr,
+            name_scope="afm", input_features=self.batch_uattr, is_training=self.is_training,
             emb_dim=self.F.embedding_dim, feat_size=self.F.afm_num_total_user_attr,
             initializer=inilz, regularizer=reglr, dropout_keep=self.F.afm_dropout)
 
@@ -111,29 +115,31 @@ class IRSModel:
         # ============================
         #   Centroids/Interests/Cost
         # ============================
-        u_ct_rep, self.u_ct_logits = centroid(input_features=user_emb, 
+        # Get users' centroid representation and logits
+        user_ct_rep, self.user_ct_logits = centroid(input_features=user_emb, 
             n_centroid=self.F.num_user_ctrd, emb_size=self.F.hid_rep_dim,
             tao=self.F.tao, name_scope="centroids", var_name="user_centroids",
             activation=self.F.ctrd_activation, regularizer=reger) # (b,d)
 
-        i_ct_reps = []  # 0,pos; 1,neg
-        i_ct_logits = []  # the centroid logits
+        # Get items' centroid representation and logits
+        item_ct_reps = []  # 0,pos; 1,neg
+        item_ct_logits = []  # the centroid logits
         for x_item_emb in [pos_item_emb, neg_item_emb]:
             tmp_ct_rep, tmp_ct_logits = centroid(input_features=tmp_item_emb,
                 n_centroid=self.F.num_item_ctrd, emb_size=self.F.hid_rep_dim,
                 tao=self.F.tao, name_scope="centroids", var_name="item_centroids",
                 activation=self.F.ctrd_activation, regularizer=reger)
-            i_ct_reps.append(tmp_ct_rep)
-            i_ct_logits.append(tmp_ct_logits)
+            item_ct_reps.append(tmp_ct_rep)
+            item_ct_logits.append(tmp_ct_logits)
 
-        self.pos_i_ct_logits, self.neg_i_ct_logits = i_ct_logits
+        self.pos_item_ct_logits, self.neg_item_ct_logits = item_ct_logits
 
         with tf.variable_scope("centroids", reuse=tf.AUTO_REUSE):
             self.user_centroids = tf.get_variable(name="user_centroids")
             self.item_centroids = tf.get_variable(name="item_centroids")
 
-        u_ct_corr_cost = centroid_corr(self.user_centroids)
-        i_ct_corr_cost = centroid_corr(self.item_centroids)
+        user_ct_corr_cost = centroid_corr(self.user_centroids)
+        item_ct_corr_cost = centroid_corr(self.item_centroids)
 
         # ======================
         #       Losses
@@ -141,14 +147,14 @@ class IRSModel:
         if self.F.loss_type == "ranking":
             # inner product + subtract
             pos_interactions = tf.reduce_sum(
-                tf.multiply(u_ct_rep, i_ct_reps[0]), axis=-1)  # (b)
+                tf.multiply(user_ct_rep, item_ct_reps[0]), axis=-1)  # (b)
             pos_interactions = tf.tile(pos_interactions,
                 multiples=[self.F.negative_sample_ratio])  # (b*nsr)
 
-            u_ct_rep_tiled = tf.tile(u_ct_rep,
+            user_ct_rep_tiled = tf.tile(user_ct_rep,
                 multiples=[self.F.negative_sample_ratio, 1]) # (b*nsr,h)
             neg_interactions = tf.reduce_sum(
-                tf.multiply(u_ct_rep_tiled, i_ct_reps[1]), axis=-1)  # (b*nsr)
+                tf.multiply(user_ct_rep_tiled, item_ct_reps[1]), axis=-1)  # (b*nsr)
             final_loss = tf.reduce_sum(tf.subtract(neg_interactions, pos_interactions),
                 name="ranking_cls_loss")
 
@@ -159,12 +165,12 @@ class IRSModel:
             ground_truth = tf.constant([1]*p_size+[0]*n_size, dtype=tf.int32,
                 shape=[p_size+n_size])  # (p_size+n_size)
 
-            u_ct_rep_tiled = tf.tile(u_ct_rep,
+            user_ct_rep_tiled = tf.tile(user_ct_rep,
                 multiples=[self.F.negative_sample_ratio, 1])
             # shape: (b*nsr, d)
-            i_ct_reps_concat = tf.concat(i_ct_reps, axis=0)
+            item_ct_reps_concat = tf.concat(item_ct_reps, axis=0)
             logits = tf.reduce_sum(
-                tf.multiply(u_ct_rep_tiled, i_ct_reps_concat), axis=-1)
+                tf.multiply(user_ct_rep_tiled, item_ct_reps_concat), axis=-1)
             final_loss = tf.nn.sigmoid_cross_entropy_with_logits(
                 labels=ground_truth, logits=logits, name="binary_cls_loss")
 
@@ -175,7 +181,7 @@ class IRSModel:
         #        ae_reconstruction + centroid_correlation + regularization
         loss = final_loss
         loss += self.F.ae_recon_loss_weight * ae_recons_loss
-        loss += self.F.ctrd_corr_weight * (u_ct_corr_cost + i_ct_corr_cost)
+        loss += self.F.ctrd_corr_weight * (user_ct_corr_cost + item_ct_corr_cost)
         loss += tf.losses.get_regularization_losses()
 
         # TODO: correct way to update loss
@@ -184,4 +190,18 @@ class IRSModel:
         self.train_op = self.optimizer.minimize(
             self.loss, global_step=self.global_step)
 
+        # ======================
+        #   Generate score
+        # ======================
+        """Generate score for testing time
+        
+        input: user_ct_rep, item_emb_mat
+        """
+        all_item_ct_rep, _ = centroid(
+            input_features=item_emb_mat, n_centroid=self.F.num_item_ctrd,
+            emb_size=self.F.hid_rep_dim, tao=self.F.tao, name_scope="centroids", 
+            var_name="item_centroids", activation=self.F.ctrd_activation, 
+            regularizer=reger)  # (n,h)
+
+        self.test_scores = tf.matmul(user_ct_rep, all_item_ct_rep, transpose_b=True)  # (b,n)
 

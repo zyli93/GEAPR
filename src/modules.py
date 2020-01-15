@@ -4,14 +4,9 @@
     @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
     tf.version: 1.13.1
-
-    TODO:
-        1. Pay attention to zero padding for every get_embeddings()
 """
 
 import tensorflow as tf
-
-# TODO: unify rep_size over three difference modules
 
 def autoencoder(input_features, layers, name_scope, regularizer=None, initializer=None):
     """Auto encoder for structural context of users 
@@ -63,10 +58,8 @@ def autoencoder(input_features, layers, name_scope, regularizer=None, initialize
 
 
 def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim,
-                   initializer=None, regularizer=None, dropout_keep=None):
+                   is_training, initializer=None, regularizer=None, dropout_keep=None):
     """attentional factorization machine for attribute feature extractions
-
-    TODO: rewrite the fetch features
 
     Shapes:
         b - batch_size
@@ -80,6 +73,7 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim,
         input_features - [int] (b, k) input discrete features
         emb_dim - [int] dimension of each embedding, d
         hid_rep_dim - [int] hidden representation dimension 
+        is_training - [tf.placeholder bool] the placeholder indicating whether traing/test
         feat_size - [int] total number of distinct features (fields) for FM, A
         attr_size - [int] total number of fields , abbrev. k
         dropout_keep - [bool] whether to use dropout in AFM
@@ -130,7 +124,7 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim,
         afm = tf.reduce_sum(tf.multiply(attn_out, element_wise_prod), axis=1, name="afm")
         # afm: b*(k*(k-1))*h => b*h
         if dropout_keep:
-            afm = tf.nn.dropout_keep(afm, dropout_keep)
+            afm = tf.layers.dropout(afm, dropout_keep, training=is_training)
 
         attn_out = tf.squeeze(attn_out, name="attention_output")
 
@@ -187,7 +181,7 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope, var_name,
 
 
 def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, hid_rep_dim,
-        n_heads, ft_drop=0.0, attn_drop=0.0):
+        is_training, n_heads, ft_drop=0.0, attn_drop=0.0):
     """Graph Attention Network component for users/items
 
     Code adapted from: https://github.com/PetarV-/GAT
@@ -206,6 +200,7 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, hid_rep
         input_indices - [int] (b, 1) the inputs of batch user indices
         num_nodes - [int] total number of nodes in the graph
         hid_rep_dim - [int] internal representation dimension
+        is_training - [tf.placeholder bool] the placeholder indicating whether traing/test
         n_heads - [int] number of heads
         ft_drop - feature dropout 
         attn_drop - attentional weight dropout (a.k.a., coef_drop)
@@ -255,7 +250,7 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, hid_rep
 
 
 def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation, 
-        head_id, ft_drop=0.0, coef_drop=0.0):
+        is_training, head_id, ft_drop=0.0, coef_drop=0.0):
     """Single graph attention head
 
     Notes:
@@ -274,6 +269,7 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
         output_size - (oz) output size (internal representation size)
         bias_mat - (b, n) bias (or mask) matrix (0 for edges, 1e-9 for non-edges)
         activation - activation function
+        is_training - same as above
         head_id - the 
         ft_drop - feature dropout rate, a.k.a., feed-forward dropout
             (e.g., 0.2 => 20% units would be dropped)
@@ -286,7 +282,7 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
 
     with tf.name_scope("gat_attn_head_{}".format(head_id)) as scope:
         if ft_drop != 0.0:
-            emb_lookup = tf.nn.dropout(emb_lookup, ft_drop)
+            emb_lookup = tf.layers.dropout(emb_lookup, ft_drop, training=is_training)
 
         # W*(whole-emb_mat), h->Wh, from R^f to R^F', (n, oz)
         hid_emb_lookup = tf.layers.conv1d(emb_lookup, output_size, 1, use_bias=False)
@@ -301,10 +297,10 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
         coefs = tf.nn.softmax(tf.nn.leaky_relu(logits) + bias_mat)  # (b, n)
 
         if coef_drop != 0.0:
-            coefs = tf.nn.dropout(coefs, coef_drop)
+            coefs = tf.layers.dropout(coefs, coef_drop, training=is_training)
 
         if ft_drop != 0.0:
-            hidden_feaures = tf.nn.dropout(hidden_feaures, ft_drop)
+            hidden_feaures = tf.layers.dropout(hidden_feaures, ft_drop, training=is_training)
 
         # coefs are masked
         vals = tf.matmul(coefs, hid_emb_lookup)  # (b, oz)

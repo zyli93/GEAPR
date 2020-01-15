@@ -158,3 +158,70 @@ def mapk(actual, predicted, k=10):
     return np.mean([apk(a,p,k) for a,p in zip(actual, predicted)])
 
 
+def precision_at_k(actual, predicted, k):
+    """precision at k
+    Args:
+        actual - list of list
+        predicted - list of list
+    Return:
+        prec@k
+    """
+    assert len(actual) == len(predicted), "prec@k inconsistent length"
+    assert k < len(predicted), "TOO Big K"
+    prec_at_k_list = [len(set(actual[i]) & set(predicted[i][:k])) / k
+                      for i in range(len(actual))]
+    return sum(prec_at_k_list) / len(prec_at_k_list)
+
+
+def recall_at_K(actual, predicted, k):
+    """recall at k
+    Args:
+        actual - list of list
+        predicted - list of list
+    Return:
+        recall@k
+    """
+    assert len(actual) == len(predicted), "prec@k inconsistent length"
+    assert k < len(predicted), "TOO Big K"
+    recall_at_k_list = [len(set(actual[i]) & set(predicted[i][:k])) / len(actual[i])
+                        for i in range(len(actual))]
+    return sum(recall_at_k_list) / len(recall_at_k_list)
+
+
+def metrics_poi_rec():
+    """a bundle of four metrics: prec@k, recall@k, map@k, and ndcg@k
+
+    Args:
+        gt - list of lists of the ground-truth
+        pred_scores - list of list of the predicted scores
+        k_list - a list of k
+
+    Returns:
+        eval_dict - dicionary of evaluation: 
+            {k:
+                {"prec":x, "recall":x, "map":x, "ndcg":x}
+             ...}
+    """
+    eval_dict = dict()
+    pred_scores[:, 0] = 1e9
+    pred_ranking = np.argsort(pred_scores, axis=1)
+    ndcg_ranking = np.isin(pred_scores, gt).astype(np.int32)
+
+    for k in k_list:
+        # mean average precision, mask out the empty id slot
+        eval_dict[k] = {
+            "mapk": mapk(actual=gt, predicted=pred_ranking, k=k),
+            "prec_ak": precision_at_k(actual=gt, predicted=pred_ranking, k=k),
+            "recall_ak": recall_at_k(actual=gt, predicted=pred_ranking, k=k),
+            "ndcgk": ndcg_at_k(r=pred_ranking, k=k)
+            }
+    return eval_dict
+
+
+
+
+
+
+
+
+
