@@ -188,7 +188,7 @@ def recall_at_K(actual, predicted, k):
     return sum(recall_at_k_list) / len(recall_at_k_list)
 
 
-def metrics_poi_rec():
+def metrics_poi_rec(gt, pred_scores, k_list):
     """a bundle of four metrics: prec@k, recall@k, map@k, and ndcg@k
 
     Args:
@@ -216,6 +216,13 @@ def metrics_poi_rec():
             "ndcgk": ndcg_at_k(r=pred_ranking, k=k)
             }
     return eval_dict
+
+
+def build_metrics_msgs(eval_dict):
+    """build msg, not used"""
+    return ["k-{}".format(k) + 
+                " ".join(["{}-{:.6f}".format(k, v) for k, v in eval_dict[k]])
+            for k in eval_dict.keys()]
 
 
 

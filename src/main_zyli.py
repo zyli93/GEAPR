@@ -58,7 +58,6 @@ flags.DEFINE_integer('hid_rep_dim', 32, 'Internal representation dimensions.')
 flags.DEFINE_float("tao", 0.2, "Temperature constant!")
 flags.DEFINE_integer("num_total_item", None, "Number of total items.")
 flags.DEFINE_integer("num_total_user", None, "Number of total users.")
-# TODO: unify embedding_dim and rep_dim!!!
 
 
 # Auto Encoder
@@ -81,6 +80,10 @@ flags.DEFINE_string("ctrd_activation", None, "Activation function of centroid fu
 flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
 flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
 flags.DEFINE_float("corr_weight", 0.1, "Correlation cost weight")
+
+# Metrics
+flags.DEFINE_list("candidate_k", None, "Evaluation Prec@k, Recall@k, MAP@k and NDCG@k")
+
 
 FLAGS = flags.FLAGS
 

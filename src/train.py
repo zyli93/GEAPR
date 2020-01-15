@@ -12,8 +12,8 @@
 import os
 import numpy as np
 import tensorflow as tf
-from utils import build_msg, cr
-from rank_metrics import mapk, ndcg_at_k
+from utils import build_msg
+from rank_metrics import metrics_poi, build_metrics_msgs
 
 
 def train(flags, model, dataloader):
@@ -57,7 +57,6 @@ def train(flags, model, dataloader):
 
         # run epochs
         for epoch in range(F.epoch):
-
             # abbrevs: batch index, batch user, batch positive and negative items
             # bI: scalar; bU: (batch_size,1)
             # bP: (batch_size, 1); bN: (batch_size * nsr, 1)
@@ -65,9 +64,7 @@ def train(flags, model, dataloader):
                 bUf, bUsc = dataloader.get_user_graphs(bU)
                 bUattr = dataloader.get_user_attributes(bU)
                 print("print shape of bUf, bUsc, bUattr")
-                print(bUf.shape)
-                print(bUsc.shape)
-                print(bUattr)
+                print(bUf.shape, bUsc.shape, bUattr)
 
                 # run training operation
                 _, gs, loss = sess.run(
@@ -80,11 +77,7 @@ def train(flags, model, dataloader):
 
                 # print results and write to file
                 if gs % F.log_n_iter == 0:
-
-                    # TODO: get map, ndcg
-
-                    msg = build_msg(stage="Trn", ep=epoch, 
-                        gs=gs, bi=bI, map_=map_, ndcg=ndcg)
+                    msg = build_msg(stage="Trn", ep=epoch, gs=gs, bi=bI, loss=loss)
 
                     # write to file, print performance every 1000 batches
                     print(msg, file=perf_writer)
@@ -109,7 +102,7 @@ def train(flags, model, dataloader):
     print("Training finished!")
 
 
-def validation(model, sess, dataloader, F):
+def validation(model, epoch, sess, dataloader, F):
     """run validation on sampled test sets"""
     valU, val_gt = dataloader.get_test_valid_dataset(is_test=False)
     val_uf, val_usc = dataloader.get_user_graphs(valU)
@@ -122,13 +115,12 @@ def validation(model, sess, dataloader, F):
             model.batch_user: valU, model.batch_uattr: val_uattr,
             model.batch_uf: val_uf, model.batch_usc: bUsc} )
 
-    eval_dict = metrics_poi(ground_truth=val_gt, pred_scores=score, k_list=???)
+    eval_dict = metrics_poi(gt=val_gt, pred_scores=score, k_list=F.candicate_k)
+    msg = build_msg("Trn", epoch=epoch, **eval_dict[F.candicate_k[0]])
+    print(msg)  # TODO what to do with the msg
 
-    # TODO: set k as a list
-    
 
-
-def evaluate(model, dataloader):
+def evaluate(model, dataloader, F, sess):
     """ Evaluation function
 
     Args:
@@ -140,8 +132,25 @@ def evaluate(model, dataloader):
     Return:
         msg - a message made report the message
     """
+    # TODO: how to handle sess?
+    bs = F.batch_size
+    tstU, tst_gt = dataloader.get_test_valid_dataset(is_test=True)
+    scores_list = []
+    for i in range(len(tstU) // bs):
+        # tstb: 
+        tstbU = tstU[i*bs: min((i+1)*bs, len(tstU))]
+        tstb_uf, tstb_usc = dataloader.get_user_graphs(tstbU)
+        tstb_uattr = dataloader.get_user_attributes(tstbU)
 
-    # TODO: implement me by batch
+        scores = sess.run(fetches=[model.test_scores],
+            feed_dict={
+                model.is_training: False,
+                model.batch_user: tstbU, model.batch_uattr: tstb_uattr,
+                model.batch_uf: tstb_uf, model.batch_usc: tstb_usc} )
+        scores_list.append(scores)
 
-    return "empty msg"
+    scores = np.concatenate(scores_list, axis=0)
+    assert len(scores) == len(tst_gt), "sizes of scores and ground truth don't match"
+    eval_dict = metrics_poi(gt=tst_gt, pred_scores=scores, k_list=F.candidate_k)
+    return eval_dict
 
