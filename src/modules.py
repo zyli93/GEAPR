@@ -34,7 +34,7 @@ def autoencoder(input_features, layers, name_scope, regularizer=None, initialize
                 bias_regularizer=regularizer, name="usc_enc_{}".format(i))
 
         # encoded hidden representation
-        hidden_feature = feature  # (b, rep_dim)
+        hidden_feature = features  # (b, rep_dim)
 
         # decoder
         rev_layers = layers[::-1]  # [out, h_dim_k, ..., h_dim_1]

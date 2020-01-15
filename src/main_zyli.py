@@ -19,24 +19,24 @@
 
     NOTES:
         1. train/test/dev ratios have been pre-set in data preparation
-        2. remember to test if ae_layers have been changed to integers
 """
 
-# from scipy.sparse import *
-# from scipy.sparse 
+import os
 import tensorflow as tf
 
 from model import IRSModel
-from train import trainer
+from train import train
 from dataloader import DataLoader
 from utils import check_flags, create_dirs
 
+# 2 = INFO and WARNING messages are not printed
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 flags = tf.app.flags
 
 # Run time
 flags.DEFINE_string('trial_id', '001', 'The ID of the current run.')
-flags.DEFINE_boolean("is_training", True, "The flag to run training or evaluation.")
+# flags.DEFINE_boolean("is_training", True, "The flag to run training or evaluation.")
 flags.DEFINE_integer('epoch', 300, 'Number of Epochs.')
 flags.DEFINE_integer('batch_size', 64, 'Number of training instance per batch.')
 flags.DEFINE_string('dataset', 'yelp', 'Input dataset name')
@@ -67,8 +67,7 @@ flags.DEFINE_list('ae_layers', None,
 flags.DEFINE_float("ae_recon_loss_weight", 0.1, "AutoEncoder reconstruction loss")
 
 # Graph Attention Network
-# TODO: gat head numbers
-flags.DEFINE_int('gat_nheads', 1, "Number of heads in GAT")
+flags.DEFINE_integer('gat_nheads', 2, "Number of heads in GAT")
 flags.DEFINE_float('gat_ft_dropout', 0.4, "Dropout rate of GAT feedforward net")
 flags.DEFINE_float('gat_coef_dropout', 0.4, "Dropout rate of GAT coefficient mat")
 
@@ -87,13 +86,23 @@ flags.DEFINE_list("candidate_k", None, "Evaluation Prec@k, Recall@k, MAP@k and N
 
 FLAGS = flags.FLAGS
 
-def main():
+def main(args):
     """entry of training or evaluation"""
+
+    print("== tf version: {} ==".format(tf.__version__))
+    print(FLAGS.ae_layers)
+    print(FLAGS.trial_id)
+    print(FLAGS.loss_type)
+    print(FLAGS.regularization_weight)
+    print(FLAGS.embedding_dim)
+    print(FLAGS.gat_nheads)
+    print(FLAGS.afm_num_total_user_attr)
 
     # check FLAGS correctness and directories
     check_flags(FLAGS)
     create_dirs(FLAGS)
 
+    print(FLAGS.ae_layers)
     # data loader
     print("[IRS] loading dataset ...")
     dataloader = DataLoader(flags=FLAGS)

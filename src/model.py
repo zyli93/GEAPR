@@ -10,6 +10,7 @@ from modules import centroid, centroid_corr
 
 
 class IRSModel:
+    """docstring"""
     def __init__(self, flags):
         """Build a model with basic Auto Encoder
 
@@ -29,10 +30,10 @@ class IRSModel:
             dtype=tf.int32, name="batch_user_friendship")
         self.batch_usc = tf.placeholder(shape=[None, self.F.num_total_item],
             dtype=tf.float32, name="batch_user_struc_ctx")
-        self.batch_uattr = tf.placeholder(shape=[None, self.F.num_user_attr],
+        self.batch_uattr = tf.placeholder(shape=[None, self.F.afm_num_total_user_attr],
             dtype=tf.int32, name="batch_user_attribute")
         self.is_train = tf.placeholder(
-            shape=[], dtype=tf.bool, name="whether is training")
+            shape=[], dtype=tf.bool, name="training_flag")
 
         # fetch-ables
         self.loss = None  # overall loss
@@ -59,25 +60,24 @@ class IRSModel:
         """
 
         # regularizer and initializer 
-        reglr = tf.contrib.layers.l2_regularizer(scale=F.regularization_weight)
+        reglr = tf.contrib.layers.l2_regularizer(scale=self.F.regularization_weight)
         inilz = tf.contrib.layers.xavier_initializer()
 
         # ===========================
         #      Auto Encoders
         # ===========================
         usc_rep, ae_recons_loss = autoencoder(input_features=self.batch_usc,
-            layers=self.F.ae_layers name_scope="user_struc_context_ae",
+            layers=self.F.ae_layers, name_scope="user_struc_context_ae",
             regularizer=reglr, initializer=inilz)
 
         # ===========================
         #   Graph Attention Network
         # ===========================
         user_emb_mat = get_embeddings(vocab_size=self.F.num_total_user,
-            is_training=self.is_training,
-            num_units=self.F.embedding_size, name_scope="gat", zero_pad=True)
+            num_units=self.F.embedding_dim, name_scope="gat", zero_pad=True)
 
         uf_rep, self.uf_attns = gatnet(
-            name_scope="gat", embedding_mat=user_emb_mat, is_training=self.is_training,
+            name_scope="gat", embedding_mat=user_emb_mat, is_training=self.is_train,
             adj_mat=self.batch_uf, input_indices=self.batch_user,
             num_nodes=self.F.num_total_user, hid_rep_dim=self.F.hid_rep_dim,
             n_heads=self.F.gat_nheads, ft_drop=self.F.gat_ft_dropout,
@@ -87,7 +87,7 @@ class IRSModel:
         #      Attention FM
         # ===========================
         uattr_rep, self.uattr_attns = attentional_fm(
-            name_scope="afm", input_features=self.batch_uattr, is_training=self.is_training,
+            name_scope="afm", input_features=self.batch_uattr, is_training=self.is_train,
             emb_dim=self.F.embedding_dim, feat_size=self.F.afm_num_total_user_attr,
             initializer=inilz, regularizer=reglr, dropout_keep=self.F.afm_dropout)
 
@@ -119,20 +119,21 @@ class IRSModel:
         user_ct_rep, self.user_ct_logits = centroid(input_features=user_emb, 
             n_centroid=self.F.num_user_ctrd, emb_size=self.F.hid_rep_dim,
             tao=self.F.tao, name_scope="centroids", var_name="user_centroids",
-            activation=self.F.ctrd_activation, regularizer=reger) # (b,d)
+            activation=self.F.ctrd_activation, regularizer=reglr) # (b,d)
 
         # Get items' centroid representation and logits
         item_ct_reps = []  # 0,pos; 1,neg
         item_ct_logits = []  # the centroid logits
         for x_item_emb in [pos_item_emb, neg_item_emb]:
-            tmp_ct_rep, tmp_ct_logits = centroid(input_features=tmp_item_emb,
+            tmp_ct_rep, tmp_ct_logits = centroid(input_features=x_item_emb,
                 n_centroid=self.F.num_item_ctrd, emb_size=self.F.hid_rep_dim,
                 tao=self.F.tao, name_scope="centroids", var_name="item_centroids",
-                activation=self.F.ctrd_activation, regularizer=reger)
+                activation=self.F.ctrd_activation, regularizer=reglr)
             item_ct_reps.append(tmp_ct_rep)
             item_ct_logits.append(tmp_ct_logits)
 
-        self.pos_item_ct_logits, self.neg_item_ct_logits = item_ct_logits
+        self.pos_item_ct_logits = item_ct_logits[0],
+        self.neg_item_ct_logits = item_ct_logits[1]
 
         with tf.variable_scope("centroids", reuse=tf.AUTO_REUSE):
             self.user_centroids = tf.get_variable(name="user_centroids")
@@ -201,7 +202,7 @@ class IRSModel:
             input_features=item_emb_mat, n_centroid=self.F.num_item_ctrd,
             emb_size=self.F.hid_rep_dim, tao=self.F.tao, name_scope="centroids", 
             var_name="item_centroids", activation=self.F.ctrd_activation, 
-            regularizer=reger)  # (n,h)
+            regularizer=reglr)  # (n,h)
 
         self.test_scores = tf.matmul(user_ct_rep, all_item_ct_rep, transpose_b=True)  # (b,n)
 

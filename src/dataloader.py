@@ -69,7 +69,7 @@ class DataLoader:
             # self.user_attr = pd.read_csv(city_dir + "processed_city_user_profile.csv")
             # self.item_attr = pd.read_csv(city_dir + "processed_city_business_profile.csv")
             self.user_attr = pd.read_csv(
-                city_dir+"processed_city_user_profile_distinct.csv").values
+                city_dir+"processed_city_user_profile_dist.csv").values
 
         else:
             self.item_col_name = None
@@ -173,7 +173,7 @@ class DataLoader:
             user_id_list - [list of int] the list of user id used for testing/validation
             ground_truth_list - [list of list] the ground truth
         """
-        assert self.valid_set < len(self.test_instances), "Big valid set!"
+        assert self.valid_set < len(self.test_instances), "TOO Big valid set!"
         if not is_test:
             test_uid_set = list(self.test_instances.keys())
             user_id_list = np.random.choice(test_uid_set, self.valid_set,

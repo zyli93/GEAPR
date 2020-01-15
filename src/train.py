@@ -70,7 +70,7 @@ def train(flags, model, dataloader):
                 _, gs, loss = sess.run(
                     fetches=[model.train_op, model.global_step, model.loss],
                     feed_dict={
-                        model.is_training=True, model.batch_user: bU,
+                        model.is_training: True, model.batch_user: bU,
                         model.batch_pos: bP, model.batch_neg: bN,
                         model.batch_uf: bUf, model.batch_usc: bUsc,
                         model.batch_uattr: bUattr} )
@@ -83,7 +83,7 @@ def train(flags, model, dataloader):
                         print(msg_loss)
 
                 # save model, only when save model flag is on
-                if F.save_model and gs and not(gs % F.save_per_iter)
+                if F.save_model and gs and not(gs % F.save_per_iter):
                     print("\tSaving Checkpoint at global step [{}]!"
                           .format(sess.run(model.global_step)))
                     saver.save(sess, save_path=logdir, global_step=gs)
