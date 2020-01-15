@@ -35,12 +35,13 @@ from utils import check_flags, create_dirs
 flags = tf.app.flags
 
 # Run time
-flags.DEFINE_bool("is_training", True, "The flag to run training or evaluation.")
 flags.DEFINE_string('trial_id', '001', 'The ID of the current run.')
+flags.DEFINE_boolean("is_training", True, "The flag to run training or evaluation.")
 flags.DEFINE_integer('epoch', 300, 'Number of Epochs.')
 flags.DEFINE_integer('batch_size', 64, 'Number of training instance per batch.')
 flags.DEFINE_string('dataset', 'yelp', 'Input dataset name')
 flags.DEFINE_string('yelp_city', 'lv', 'City data subset of yelp')
+flags.DEFINE_boolean("save_model", False, "Whether to save the model")
 flags.DEFINE_integer('save_per_iter', 1000, 'Number of iterations per save.')
 flags.DEFINE_integer('log_per_iter', 200, "Number of iterations per log.")
 flags.DEFINE_integer('negative_sample_ratio', 3, "Negative sample ratio")
@@ -72,11 +73,10 @@ flags.DEFINE_float('gat_ft_dropout', 0.4, "Dropout rate of GAT feedforward net")
 flags.DEFINE_float('gat_coef_dropout', 0.4, "Dropout rate of GAT coefficient mat")
 
 # Attentional Factorization Machine
-flags.DEFINE_bool("afm_dropout", False, "Whether to use dropout in attentional FM")
+flags.DEFINE_boolean("afm_dropout", False, "Whether to use dropout in attentional FM")
 flags.DEFINE_integer("afm_num_total_user_attr", None, "Number of total user attributes")
 
 # Centroid
-flags.DEFINE_string("ctrd_activation", None, "Activation function of centroid func")
 flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
 flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
 flags.DEFINE_float("corr_weight", 0.1, "Correlation cost weight")

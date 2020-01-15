@@ -76,34 +76,72 @@ def train(flags, model, dataloader):
                         model.batch_uattr: bUattr} )
 
                 # print results and write to file
-                if gs % F.log_n_iter == 0:
-                    msg = build_msg(stage="Trn", ep=epoch, gs=gs, bi=bI, loss=loss)
+                if gs and not(gs % F.log_per_iter):
+                    msg_loss = build_msg(stage="Trn", ep=epoch, gs=gs, bi=bI, loss=loss)
+                    print(msg_loss, file=perf_writer)  # write to log
+                    if gs % (10 * F.log_per_iter) == 0:
+                        print(msg_loss)
 
-                    # write to file, print performance every 1000 batches
-                    print(msg, file=perf_writer)
-                    if gs % (10 * F.log_n_iter) == 0:
-                        print(msg)
-
-                # save model
-                if gs % F.save_n_poch == 0:
+                # save model, only when save model flag is on
+                if F.save_model and gs and not(gs % F.save_per_iter)
                     print("\tSaving Checkpoint at global step [{}]!"
                           .format(sess.run(model.global_step)))
                     saver.save(sess, save_path=logdir, global_step=gs)
 
             # run validation set
-            epoch_msg = evaluate(sess=sess,
-                                 dataloader=dataloader,
-                                 epoch=epoch,
-                                 model=model)
+            eval_dict = evaluate(False, model, dataloader, F, sess, epoch)
+            msg_val_score = build_msg("Val", epoch=epoch, eval_dict=eval_dict)
 
-            print(epoch_msg)
-            print(epoch_msg, file=perf_writer)
+            print(msg_val_score)
+            print(msg_val_score, file=perf_writer)
+
+            # TODO: for debug purpose, have NOT implemented TEST. Pls Implement it!
 
     print("Training finished!")
 
 
+def evaluate(is_test, model, dataloader, F, sess, epoch):
+    """ Testing/validation function
+
+    Args:
+        is_test - [flag] of `test` (True)  or `validation` (False)
+        model - the model
+        sess - the session used to run everything
+        epoch - the number of epochs of this evaluation
+        dataloader - the data loader
+        F - the flags
+
+    Return:
+        msg - a message made report the message
+    """
+    bs = F.batch_size
+    tv_U, tv_gt = dataloader.get_test_valid_dataset(is_test=True)
+    scores_list = []
+    for i in range(len(tv_U) // bs):
+        # tv_: test or validation
+        tv_bU = tv_U[i*bs: min((i+1)*bs, len(tv_U))]
+        tv_buf, tv_busc = dataloader.get_user_graphs(tv_bU)
+        tv_buattr = dataloader.get_user_attributes(tv_bU)
+
+        scores = sess.run(fetches=[model.test_scores],
+            feed_dict={
+                model.is_training: False,
+                model.batch_user: tv_bU, model.batch_uattr: tv_buattr,
+                model.batch_uf: tv_buf, model.batch_usc: tv_busc} )
+        scores_list.append(scores)
+
+    scores = np.concatenate(scores_list, axis=0)
+    assert len(scores) == len(tv_gt), \
+            "[evaluate] sizes of scores and ground truth don't match"
+    eval_dict = metrics_poi(gt=tst_gt, pred_scores=scores, k_list=F.candidate_k)
+    return eval_dict
+
+
 def validation(model, epoch, sess, dataloader, F):
-    """run validation on sampled test sets"""
+    """run validation on sampled test sets
+    
+    [Not used] merge to evaluate
+    """
     valU, val_gt = dataloader.get_test_valid_dataset(is_test=False)
     val_uf, val_usc = dataloader.get_user_graphs(valU)
     val_uattr = dataloader.get_user_attributes(valU)
@@ -117,40 +155,5 @@ def validation(model, epoch, sess, dataloader, F):
 
     eval_dict = metrics_poi(gt=val_gt, pred_scores=score, k_list=F.candicate_k)
     msg = build_msg("Trn", epoch=epoch, **eval_dict[F.candicate_k[0]])
-    print(msg)  # TODO what to do with the msg
-
-
-def evaluate(model, dataloader, F, sess):
-    """ Evaluation function
-
-    Args:
-        model - the model
-        sess - the session used to run everything
-        epoch - number of epochs
-        dataloader - the data loader
-
-    Return:
-        msg - a message made report the message
-    """
-    # TODO: how to handle sess?
-    bs = F.batch_size
-    tstU, tst_gt = dataloader.get_test_valid_dataset(is_test=True)
-    scores_list = []
-    for i in range(len(tstU) // bs):
-        # tstb: 
-        tstbU = tstU[i*bs: min((i+1)*bs, len(tstU))]
-        tstb_uf, tstb_usc = dataloader.get_user_graphs(tstbU)
-        tstb_uattr = dataloader.get_user_attributes(tstbU)
-
-        scores = sess.run(fetches=[model.test_scores],
-            feed_dict={
-                model.is_training: False,
-                model.batch_user: tstbU, model.batch_uattr: tstb_uattr,
-                model.batch_uf: tstb_uf, model.batch_usc: tstb_usc} )
-        scores_list.append(scores)
-
-    scores = np.concatenate(scores_list, axis=0)
-    assert len(scores) == len(tst_gt), "sizes of scores and ground truth don't match"
-    eval_dict = metrics_poi(gt=tst_gt, pred_scores=scores, k_list=F.candidate_k)
-    return eval_dict
+    print(msg)
 

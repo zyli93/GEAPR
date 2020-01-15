@@ -346,6 +346,7 @@ def centroid_corr(centroid_mat, name_scope):
 
     with tf.name_scope(name_scope) as scope:
         # cosine cost
+        # TODO: what is this?
         numerator = tf.square(tf.matmul(centroids, centroids, transpose_b=True)) # (c,c)
         row_sqr_sum = tf.reduce_sum(tf.square(ctrs), axis=1, keepdims=True)  # (c,1)
         rss_sqrt = tf.sqrt(row_sqr_sum)  # (c, 1) element-wise sqrt

@@ -71,18 +71,32 @@ def get_activation_func(func_name):
 
 
 def build_msg(stage, **kwargs):
+    """build msg"""
+    def build_single_msg(pref, kwargs):
+        for key, value in kwargs.items():
+            if isinstance(value, int):
+                pref += " {}:{:d}".format(key, value)
+            elif isinstance(value, float):
+                pref += " {}:{:.6f}".format(key, value)
+            else:
+                TypeError("Error in value type {}".format(type(value)))
+        return pref
+
+    assert stage in ["Trn", "Val", "Tst"], "Invalid `stage` in build_msg"
     time = datetime.now().isoformat()[:24]
     msg = ("[{},{}] ".format(stage, time))
 
-    for key, value in kwargs.items():
-        if isinstance(value, int):
-            msg += " {}:{:d}".format(key, value)
-        elif isinstance(value, float):
-            msg += " {}:{:.6f}".format(key, value)
-        else:
-            TypeError("Error in value type {}".format(type(value)))
+    if stage == "Trn":
+        return build_msg(msg, kwargs)
+    else:
+        assert "eval_dict" in kwargs, "Has to put in eval_dict!"
+        assert "epoch" in kwargs, "Has to put in epoch!"
+        eval_dict = kwargs["eval_dict"]
+        ep = kwargs["epoch"]
+        msg_list = [build_single_msg(msg, ep=ep, k=k, **metrics) 
+                    for k, metrics in eval_dict.items()]
+        return "\n".join(msg_list)
 
-    return msg
 
 
 def dump_pkl(path, obj):

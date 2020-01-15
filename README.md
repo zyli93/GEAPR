@@ -11,7 +11,6 @@ There's nothing in this one now.
 4. Now that `prep_yelp.py` has been changed, redo the doc of it.
 5. Now that `attributes_extractor.py` has been changed, redo the doc of it.
 6. Fix all TODO's in `model.py` and `training.py`.
-7. Implement interpretation logics!
 
 
 ## Notes
@@ -55,6 +54,16 @@ For example, if we choose to use train:test as 9:1, then we should use:
 ```bash
 $ python src/prep_yelp.py gen_data --train_test_ratio=9:1
 ```
+
+The statistics
+```text
+City    #.user  #.business  #.attr   
+lv      34289   17395       80       
+phx
+tor
+```
+
+For `lv`, train/test business do have over 17224, 13206, 13035 (overlap).
 
 #### 4. Find the results
 In `./data/parse/yelp`, you would be able to see three folders:
