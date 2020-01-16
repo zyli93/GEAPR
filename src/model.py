@@ -37,9 +37,13 @@ class IRSModel:
 
         # fetch-ables
         self.loss = None  # overall loss
-
         self.user_centroids, self.item_centroids = None, None  # ctrds
         self.train_op = None
+        self.test_scores = None
+        self.uf_attns, self.uattr_attns = None, None
+        self.pos_item_ct_logits, self.neg_item_ct_logits = None, None
+        self.user_emb_agg_attn = None
+        self.user_ct_logits = None
 
         # global step counter
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
@@ -49,7 +53,6 @@ class IRSModel:
 
         # build graph
         self.build_graph()
-
 
     def build_graph(self):
         """
@@ -89,7 +92,8 @@ class IRSModel:
         uattr_rep, self.uattr_attns = attentional_fm(
             name_scope="afm", input_features=self.batch_uattr, is_training=self.is_train,
             emb_dim=self.F.embedding_dim, feat_size=self.F.afm_num_total_user_attr,
-            initializer=inilz, regularizer=reglr, dropout_keep=self.F.afm_dropout)
+            initializer=inilz, regularizer=reglr, dropout_keep=self.F.afm_dropout,
+            hid_rep_dim=self.F.hid_rep_dim, attr_size=self.F.afm_num_field)
 
         # ===========================
         #      Item embedding
@@ -110,7 +114,7 @@ class IRSModel:
         user_emb_attn = tf.nn.softmax(user_emb_attn, axis=1)  # (b,3,1)
         self.user_emb_agg_attn = tf.squeeze(user_emb_attn)  # (b,3), VIZ
         user_emb = tf.squeeze(
-            tf.matmul(user_emb, user_emb_attn, transpose_a=True)) # (b,h)
+            tf.matmul(user_emb, user_emb_attn, transpose_a=True))  # (b,h)
 
         # ============================
         #   Centroids/Interests/Cost
@@ -119,7 +123,7 @@ class IRSModel:
         user_ct_rep, self.user_ct_logits = centroid(input_features=user_emb, 
             n_centroid=self.F.num_user_ctrd, emb_size=self.F.hid_rep_dim,
             tao=self.F.tao, name_scope="centroids", var_name="user_centroids",
-            activation=self.F.ctrd_activation, regularizer=reglr) # (b,d)
+            activation=self.F.centroid_act, regularizer=reglr)  # (b,d)
 
         # Get items' centroid representation and logits
         item_ct_reps = []  # 0,pos; 1,neg
@@ -128,7 +132,7 @@ class IRSModel:
             tmp_ct_rep, tmp_ct_logits = centroid(input_features=x_item_emb,
                 n_centroid=self.F.num_item_ctrd, emb_size=self.F.hid_rep_dim,
                 tao=self.F.tao, name_scope="centroids", var_name="item_centroids",
-                activation=self.F.ctrd_activation, regularizer=reglr)
+                activation=self.F.centroid_act, regularizer=reglr)
             item_ct_reps.append(tmp_ct_rep)
             item_ct_logits.append(tmp_ct_logits)
 
@@ -153,7 +157,7 @@ class IRSModel:
                 multiples=[self.F.negative_sample_ratio])  # (b*nsr)
 
             user_ct_rep_tiled = tf.tile(user_ct_rep,
-                multiples=[self.F.negative_sample_ratio, 1]) # (b*nsr,h)
+                multiples=[self.F.negative_sample_ratio, 1])  # (b*nsr,h)
             neg_interactions = tf.reduce_sum(
                 tf.multiply(user_ct_rep_tiled, item_ct_reps[1]), axis=-1)  # (b*nsr)
             final_loss = tf.reduce_sum(tf.subtract(neg_interactions, pos_interactions),
@@ -205,4 +209,3 @@ class IRSModel:
             regularizer=reglr)  # (n,h)
 
         self.test_scores = tf.matmul(user_ct_rep, all_item_ct_rep, transpose_b=True)  # (b,n)
-

@@ -1,26 +1,20 @@
-#!/usr/bin/python3
+"""Utils functions for irsfn
 
-"""
-    Utils functions for irsfn
-
-    @authors: Zeyu Li <zyli@cs.ucla.edu>
+    @authors: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 """
 
 import os
-import datetime
+from datetime import datetime
 import tensorflow as tf
+
 try:
     import _pickle as pickle
-except:
+except ImportError:
     import pickle
 
-ACT_FUNC = {
-    "relu": tf.nn.relu,
-    "tanh": tf.nn.tanh,
-    "lrelu": tf.nn.leaky_relu
-}
-
+ACT_FUNC = {"relu": tf.nn.relu, "tanh": tf.nn.tanh, "lrelu": tf.nn.leaky_relu}
 OUTPUT_DIR = "./output/"
+
 
 def create_dirs(f):
     """create directories
@@ -38,18 +32,11 @@ def make_dir(path):
     if not os.path.isdir(path):
         os.mkdir(path)
 
+
 def make_dir_rec(path):
     """make a directory recursively, okay if exist"""
     if not os.path.isdir(path):
         os.makedirs(path, exist_ok=True)
-
-
-def parse_ae_layers(struct_str):
-    """[Not used]"""
-    # parse layers size:
-    #   E.G. "100-100-4" to [100, 100, 4]
-    assert len(struct_str) > 0, "Invalid MLP layers"
-    return [int(x) for x in struct_str.strip().split("-")]
 
 
 def check_flags(f):
@@ -72,8 +59,8 @@ def get_activation_func(func_name):
 
 def build_msg(stage, **kwargs):
     """build msg"""
-    def build_single_msg(pref, kwargs):
-        for key, value in kwargs.items():
+    def build_single_msg(pref, **kw_dict):
+        for key, value in kw_dict.items():
             if isinstance(value, int):
                 pref += " {}:{:d}".format(key, value)
             elif isinstance(value, float):
@@ -87,7 +74,7 @@ def build_msg(stage, **kwargs):
     msg = ("[{},{}] ".format(stage, time))
 
     if stage == "Trn":
-        return build_msg(msg, kwargs)
+        return build_single_msg(msg, **kwargs)
     else:
         assert "eval_dict" in kwargs, "Has to put in eval_dict!"
         assert "epoch" in kwargs, "Has to put in epoch!"
@@ -96,7 +83,6 @@ def build_msg(stage, **kwargs):
         msg_list = [build_single_msg(msg, ep=ep, k=k, **metrics) 
                     for k, metrics in eval_dict.items()]
         return "\n".join(msg_list)
-
 
 
 def dump_pkl(path, obj):
@@ -109,6 +95,3 @@ def load_pkl(path):
     """helper to load objects"""
     with open(path, "rb") as fin:
         return pickle.load(fin)
-
-
-

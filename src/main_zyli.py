@@ -74,17 +74,21 @@ flags.DEFINE_float('gat_coef_dropout', 0.4, "Dropout rate of GAT coefficient mat
 # Attentional Factorization Machine
 flags.DEFINE_boolean("afm_dropout", False, "Whether to use dropout in attentional FM")
 flags.DEFINE_integer("afm_num_total_user_attr", None, "Number of total user attributes")
+flags.DEFINE_integer("afm_num_field", None, "Number of fields of user attributes")
+# TODO: add this to run bash
 
 # Centroid
 flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
 flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
 flags.DEFINE_float("corr_weight", 0.1, "Correlation cost weight")
+flags.DEFINE_string("centroid_act", None, "Centroid activation function")
 
 # Metrics
 flags.DEFINE_list("candidate_k", None, "Evaluation Prec@k, Recall@k, MAP@k and NDCG@k")
 
 
 FLAGS = flags.FLAGS
+
 
 def main(args):
     """entry of training or evaluation"""
@@ -114,7 +118,7 @@ def main(args):
     # run trainer, evaluation included
     if FLAGS.is_training:
         print("[IRS] start running training ...")
-        trainer(flags=FLAGS, model=model, dataloader=dataloader)
+        train(flags=FLAGS, model=model, dataloader=dataloader)
     else:
         print("[IRS] start running evaluation ...")
         raise NotImplementedError("evaluation not implemented")

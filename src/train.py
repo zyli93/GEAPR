@@ -1,15 +1,8 @@
-#! /usr/bin/python3
-"""
-    Trainer file
+"""Trainer file
 
-    Note:
-        1. tensorboard is not used in this project
-
-    @author: Zeyu Li <zyli@cs.ucla.edu>
-
+    @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 """
 
-import os
 import numpy as np
 import tensorflow as tf
 from utils import build_msg
@@ -46,7 +39,7 @@ def train(flags, model, dataloader):
 
     # training
     with tf.Session(config=config) as sess, \
-         open(perf_file, "w") as perf_writer:
+            open(perf_file, "w") as perf_writer:
 
         # initialization
         sess.run(tf.local_variables_initializer())
@@ -73,7 +66,7 @@ def train(flags, model, dataloader):
                         model.is_training: True, model.batch_user: bU,
                         model.batch_pos: bP, model.batch_neg: bN,
                         model.batch_uf: bUf, model.batch_usc: bUsc,
-                        model.batch_uattr: bUattr} )
+                        model.batch_uattr: bUattr})
 
                 # print results and write to file
                 if gs and not(gs % F.log_per_iter):
@@ -86,7 +79,7 @@ def train(flags, model, dataloader):
                 if F.save_model and gs and not(gs % F.save_per_iter):
                     print("\tSaving Checkpoint at global step [{}]!"
                           .format(sess.run(model.global_step)))
-                    saver.save(sess, save_path=logdir, global_step=gs)
+                    saver.save(sess, save_path=ckpt_dir, global_step=gs)
 
             # run validation set
             eval_dict = evaluate(False, model, dataloader, F, sess, epoch)
@@ -100,7 +93,7 @@ def train(flags, model, dataloader):
     print("Training finished!")
 
 
-def evaluate(is_test, model, dataloader, F, sess, epoch):
+def evaluate(is_test, model, dataloader, F, sess):
     """ Testing/validation function
 
     Args:
@@ -115,7 +108,7 @@ def evaluate(is_test, model, dataloader, F, sess, epoch):
         msg - a message made report the message
     """
     bs = F.batch_size
-    tv_U, tv_gt = dataloader.get_test_valid_dataset(is_test=True)
+    tv_U, tv_gt = dataloader.get_test_valid_dataset(is_test=is_test)
     scores_list = []
     for i in range(len(tv_U) // bs):
         # tv_: test or validation
@@ -127,13 +120,13 @@ def evaluate(is_test, model, dataloader, F, sess, epoch):
             feed_dict={
                 model.is_training: False,
                 model.batch_user: tv_bU, model.batch_uattr: tv_buattr,
-                model.batch_uf: tv_buf, model.batch_usc: tv_busc} )
+                model.batch_uf: tv_buf, model.batch_usc: tv_busc})
         scores_list.append(scores)
 
     scores = np.concatenate(scores_list, axis=0)
     assert len(scores) == len(tv_gt), \
-            "[evaluate] sizes of scores and ground truth don't match"
-    eval_dict = metrics_poi(gt=tst_gt, pred_scores=scores, k_list=F.candidate_k)
+        "[evaluate] sizes of scores and ground truth don't match"
+    eval_dict = metrics_poi(gt=tv_gt, pred_scores=scores, k_list=F.candidate_k)
     return eval_dict
 
 
@@ -151,9 +144,8 @@ def validation(model, epoch, sess, dataloader, F):
         feed_dict={
             model.is_training: False,
             model.batch_user: valU, model.batch_uattr: val_uattr,
-            model.batch_uf: val_uf, model.batch_usc: bUsc} )
+            model.batch_uf: val_uf, model.batch_usc: val_usc})
 
-    eval_dict = metrics_poi(gt=val_gt, pred_scores=score, k_list=F.candicate_k)
+    eval_dict = metrics_poi(gt=val_gt, pred_scores=scores, k_list=F.candicate_k)
     msg = build_msg("Trn", epoch=epoch, **eval_dict[F.candicate_k[0]])
     print(msg)
-

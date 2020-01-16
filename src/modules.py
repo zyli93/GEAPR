@@ -3,10 +3,12 @@
 
     @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
-    tf.version: 1.13.1
+    tf.version: 1.14.0
 """
 
 import tensorflow as tf
+from utils import get_activation_func
+
 
 def autoencoder(input_features, layers, name_scope, regularizer=None, initializer=None):
     """Auto encoder for structural context of users 
@@ -22,7 +24,7 @@ def autoencoder(input_features, layers, name_scope, regularizer=None, initialize
         recon_loss - reconstruction loss
     """
 
-    with tf.name_scope(name_scope) as scope:
+    with tf.name_scope(name_scope):
         features = input_features
         restore_dim = int(features.shape[1])
 
@@ -57,7 +59,7 @@ def autoencoder(input_features, layers, name_scope, regularizer=None, initialize
     return hidden_feature, recon_loss
 
 
-def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim,
+def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, attr_size,
                    is_training, initializer=None, regularizer=None, dropout_keep=None):
     """attentional factorization machine for attribute feature extractions
 
@@ -104,8 +106,7 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim,
                     tf.multiply(uattr_emb[:, i, :], uattr_emb[:, j, :]))
 
         element_wise_prod = tf.stack(element_wise_prod_list, axis=1)
-        interactions = tf.reduce_sum(element_wise_prod, axis=2,
-            name="afm_interactions")  # b * (k*(k-1))
+        interactions = tf.reduce_sum(element_wise_prod, axis=2)  # b * (k*(k-1))
         num_interactions = attr_size * (attr_size - 1) / 2  # aka: k *(k-1)
 
         # attentional part
@@ -130,11 +131,11 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim,
 
         # TODO: first order feature not considered yet!
 
-        return afm, attns
+        return afm, attn_out
 
 
 def centroid(input_features, n_centroid, emb_size, tao, name_scope, var_name,
-        regularizer=None, activation=None):
+             regularizer=None, activation=None):
     """Model the centroids for users/items
 
     Centroids mean interests for users and categories for items
@@ -156,10 +157,10 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope, var_name,
     Returns:
         output - (b, d)
     """
-    with tf.name_scope(name_scope) as scope:
+    with tf.name_scope(name_scope):
 
         # create centroids/interests variables
-        with tf.variable_scope(name_scope, resue=tf.AUTO_REUSE) as var_scope:
+        with tf.variable_scope(name_scope, reuse=tf.AUTO_REUSE):
             centroids = tf.get_variable(shape=[n_centroid, emb_size], dtype=tf.float32,
                 name=var_name, regularizer=regularizer)  # (c,d)
 
@@ -169,7 +170,7 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope, var_name,
         # if `activation` given, pass through activation func
         if activation:
             activation_func = get_activation_func(activation)
-            ft_mul = activation(ft_mul)
+            ft_mul = activation_func(ft_mul)
 
         # apply temperature and then softmax
         logits = tf.nn.softmax(ft_mul / tao, axis=-1)  # (b,c)
@@ -180,8 +181,8 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope, var_name,
         return output, logits
 
 
-def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, hid_rep_dim,
-        is_training, n_heads, ft_drop=0.0, attn_drop=0.0):
+def gatnet(name_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,
+           is_training, n_heads, ft_drop=0.0, attn_drop=0.0):
     """Graph Attention Network component for users/items
 
     Code adapted from: https://github.com/PetarV-/GAT
@@ -198,7 +199,6 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, hid_rep
         embedding_mat - [float32] (n, d) the whole embedding matrix of nodes
         adj_mat - [int] (b, n) adjacency matrix for the batch
         input_indices - [int] (b, 1) the inputs of batch user indices
-        num_nodes - [int] total number of nodes in the graph
         hid_rep_dim - [int] internal representation dimension
         is_training - [tf.placeholder bool] the placeholder indicating whether traing/test
         n_heads - [int] number of heads
@@ -214,43 +214,29 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, num_nodes, hid_rep
             - obtained bias_mat
     """
 
-    with tf.name_scop(name_scope) as scope:
+    with tf.name_scope(name_scope):
 
         bias_mat = -1e9 * (1 - tf.cast(adj_mat, dtype=tf.float32))  # (b, d)
         hidden_features = []
         attns = []
 
-        for _ in range(n_heads):
+        for i in range(n_heads):
             # (b, oz), (b, n)
             hid_feature, attn = gat_attn_head(
                 input_indices=input_indices, emb_lookup=embedding_mat, bias_mat=bias_mat,
                 output_size=hid_rep_dim, activation=tf.nn.relu, ft_drop=ft_drop,
-                coef_drop=attn_drop)
+                coef_drop=attn_drop, is_training=is_training, head_id=i)
             hidden_features.append(hid_feature)
             attns.append(attn)
 
         h_1 = tf.concat(hidden_features, axis=-1)  # [n_head*(b, oz)] => (b, oz*n_head)
-
-        """
-        # Commenting these lines of code due to strategy change
-        # Gave up using attention
-        for i in range(n_heads[-1]):
-            out_hid_feat, out_attn = gat_attn_head(input_features=h_1, 
-                bias_mat=bias_mat, output_size=???,
-                activation=lambda x: x, ft_drop=ft_drop, coef_drop=attn_drop)
-            out.append(out_hid_feat)
-            out_attns.append(out_attn)
-
-        logits = tf.add_n(out) / n_heads[-1] 
-        """
-
-        logits = tf.layers.conv1d(h_1, hid_rep_dim, 1, use_bias=False) # (b, oz)
+        logits = tf.layers.conv1d(h_1, hid_rep_dim, 1, use_bias=False)  # (b, oz)
 
         return logits,  attns
 
 
-def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation, 
-        is_training, head_id, ft_drop=0.0, coef_drop=0.0):
+def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
+                  is_training, head_id, ft_drop=0.0, coef_drop=0.0):
     """Single graph attention head
 
     Notes:
@@ -280,7 +266,7 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
         coefs - (b, n) the attention distribution
     """
 
-    with tf.name_scope("gat_attn_head_{}".format(head_id)) as scope:
+    with tf.name_scope("gat_attn_head_{}".format(head_id)):
         if ft_drop != 0.0:
             emb_lookup = tf.layers.dropout(emb_lookup, ft_drop, training=is_training)
 
@@ -293,14 +279,15 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
         # simplest self-attention possible, concatenation implementiation
         f_1 = tf.layers.conv1d(b_hid_emb, 1, 1)  # (b, 1)
         f_2 = tf.layers.conv1d(hid_emb_lookup, 1, 1)  # (n, 1)
-        logtis=  f_1 + tf.transpose(f_2, [0, 2, 1])  # (b, n)
+        logits = f_1 + tf.transpose(f_2, [0, 2, 1])  # (b, n)
         coefs = tf.nn.softmax(tf.nn.leaky_relu(logits) + bias_mat)  # (b, n)
 
         if coef_drop != 0.0:
             coefs = tf.layers.dropout(coefs, coef_drop, training=is_training)
 
         if ft_drop != 0.0:
-            hidden_feaures = tf.layers.dropout(hidden_feaures, ft_drop, training=is_training)
+            hid_emb_lookup = tf.layers.dropout(
+                hid_emb_lookup, ft_drop, training=is_training)
 
         # coefs are masked
         vals = tf.matmul(coefs, hid_emb_lookup)  # (b, oz)
@@ -334,7 +321,7 @@ def get_embeddings(vocab_size, num_units, name_scope, zero_pad=False):
 
 
 def centroid_corr(centroid_mat, name_scope):
-    """Compute centroidj correlations to minimize
+    """Compute centroid correlations to minimize
 
     Args:
         centroid matrix - the entire matrix of centroids
@@ -343,44 +330,11 @@ def centroid_corr(centroid_mat, name_scope):
     Returns:
         the correlations of centroid
     """
-
-    with tf.name_scope(name_scope) as scope:
-        # cosine cost
-        # TODO: what is this?
-        numerator = tf.square(tf.matmul(centroids, centroids, transpose_b=True)) # (c,c)
-        row_sqr_sum = tf.reduce_sum(tf.square(ctrs), axis=1, keepdims=True)  # (c,1)
+    with tf.name_scope(name_scope):
+        numerator = tf.square(tf.matmul(centroid_mat, centroid_mat, transpose_b=True))  # (c,c)
+        row_sqr_sum = tf.reduce_sum(tf.square(centroid_mat), axis=1, keepdims=True)  # (c,1)
         rss_sqrt = tf.sqrt(row_sqr_sum)  # (c, 1) element-wise sqrt
         denominator = tf.matmul(rss_sqrt, rss_sqrt, transpose_b=True)  # (c,c)
         corr_cost = tf.truediv(numerator, denominator)
 
     return corr_cost
-
-
-# ======== not used ==========
-
-def mlp(raw_data, layers, name_scope, regularizer=None):
-    """Multi-layer Perceptron
-
-    :param raw_data:
-    :param layers: [raw_dim, layer1, layer2, ...]
-    :param name_scope:
-    :param regularizer:
-    :return:
-    """
-
-    # implicit community detection
-    with tf.name_scope(name_scope):
-        for i in range(1, len(layers) - 1):
-            feature = tf.layers.dense(feature,
-                units=layers[i], activation=tf.nn.relu,
-                use_bias=True, kernel_regularizer=regularizer,
-                bias_regularizer=regularizer, name="imp_enc_{}".format(i))
-
-        feature = tf.layers.dense(feature,
-                units=layers[-1], activation=tf.nn.tanh,
-                use_bias=False, kernel_regularizer=regularizer,
-                bias_regularizer=regularizer,
-                name="imp_enc_{}".format(len(layers)))
-
-        return feature
-
