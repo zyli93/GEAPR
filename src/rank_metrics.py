@@ -173,7 +173,7 @@ def precision_at_k(actual, predicted, k):
     return sum(prec_at_k_list) / len(prec_at_k_list)
 
 
-def recall_at_K(actual, predicted, k):
+def recall_at_k(actual, predicted, k):
     """recall at k
     Args:
         actual - list of list

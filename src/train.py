@@ -6,7 +6,7 @@
 import numpy as np
 import tensorflow as tf
 from utils import build_msg
-from rank_metrics import metrics_poi, build_metrics_msgs
+from rank_metrics import metrics_poi
 
 
 def train(flags, model, dataloader):
@@ -82,7 +82,7 @@ def train(flags, model, dataloader):
                     saver.save(sess, save_path=ckpt_dir, global_step=gs)
 
             # run validation set
-            eval_dict = evaluate(False, model, dataloader, F, sess, epoch)
+            eval_dict = evaluate(False, model, dataloader, F, sess)
             msg_val_score = build_msg("Val", epoch=epoch, eval_dict=eval_dict)
 
             print(msg_val_score)

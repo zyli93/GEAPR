@@ -123,13 +123,10 @@ def extract_business_attr(city):
 
     Args:
         city - the city to profess
-
     Print-outs:
         df_nonzero - non zero number ratios of each attribute
-
     Store:
         bus_cat_dicts - business category
-
     Return:
         df_nonzero - as above.
     """
@@ -224,10 +221,10 @@ def discretize_field_attr(city, num_bkt):
             vals_map = dict(zip(num_vals, range(0, len(num_vals))))
             distinct_df_col_names.append(col+"_d_dist")
             distinct_df_cols.append(
-                df[col].apply(lambda x: vals_map(x)+distinct_ft_count))
+                df[col].apply(lambda x: vals_map[x]+distinct_ft_count))
             # df.assign(col+"_dist", lambda x: vals_map(x)+distinct_ft_count)
             entry = {"bucket": False,
-                    "value_map": vals_maps, "count": num_vals}
+                    "value_map": vals_map, "count": num_vals}
             distinct_ft_count += num_vals
 
         # treat attribute as continuous variable
