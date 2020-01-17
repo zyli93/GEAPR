@@ -1,6 +1,7 @@
 #
 # Pycharm related
 .idea/
+.DS_Store
 
 # vim related
 *.swp

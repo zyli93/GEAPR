@@ -271,14 +271,17 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
             emb_lookup = tf.layers.dropout(emb_lookup, ft_drop, training=is_training)
 
         # W*(whole-emb_mat), h->Wh, from R^f to R^F', (n, oz)
-        hid_emb_lookup = tf.layers.conv1d(emb_lookup, output_size, 1, use_bias=False)
+        # hid_emb_lookup = tf.layers.conv1d(emb_lookup, output_size, 1, use_bias=False)
+        hid_emb_lookup = tf.layers.dense(emb_lookup, output_size, use_bias=False)
 
         # the batch of Wh's of the users, (b, oz)
         b_hid_emb = tf.nn.embedding_lookup(hid_emb_lookup, input_indices)
 
         # simplest self-attention possible, concatenation implementiation
-        f_1 = tf.layers.conv1d(b_hid_emb, 1, 1)  # (b, 1)
-        f_2 = tf.layers.conv1d(hid_emb_lookup, 1, 1)  # (n, 1)
+        # f_1 = tf.layers.conv1d(b_hid_emb, 1, 1)  # (b, 1)
+        # f_2 = tf.layers.conv1d(hid_emb_lookup, 1, 1)  # (n, 1)
+        f_1 = tf.layers.dense(b_hid_emb, 1)  # (b, 1)
+        f_2 = tf.layers.dense(hid_emb_lookup, 1)  # (n, 1)
         logits = f_1 + tf.transpose(f_2, [0, 2, 1])  # (b, n)
         coefs = tf.nn.softmax(tf.nn.leaky_relu(logits) + bias_mat)  # (b, n)
 

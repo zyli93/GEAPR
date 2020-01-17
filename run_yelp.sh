@@ -28,7 +28,7 @@ python3 src/main_zyli.py \
     --trial_id 1 \
     --epoch 300 \
     --batch_size 128 \
-    --yelp_city lv \
+    --yelp_city tor \
     --nosave_model \
     --log_per_iter 200 \
     --negative_sample_ratio 3 \
@@ -38,14 +38,15 @@ python3 src/main_zyli.py \
     --embedding_dim 64 \
     --hid_rep_dim 32 \
     --tao 0.5 \
-    --num_total_item 17395 \
-    --num_total_user 34289 \
+    --num_total_item 9102 \
+    --num_total_user 9582 \
     --ae_recon_loss_weight 0.01 \
     --gat_nheads 1 \
     --gat_ft_dropout 0.3 \
     --gat_coef_dropout 0.3 \
     --afm_dropout \
     --afm_num_total_user_attr 80 \
+    --afm_num_field 8 \
     --num_user_ctrd 16 \
     --num_item_ctrd 16 \
     --corr_weight 0.01 \

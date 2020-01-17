@@ -11,6 +11,8 @@ There's nothing in this one now.
 4. Now that `prep_yelp.py` has been changed, redo the doc of it.
 5. Now that `attributes_extractor.py` has been changed, redo the doc of it.
 6. Fix all TODO's in `model.py` and `training.py`.
+7. Add more features on user from business 
+8. 
 
 
 ## Notes
@@ -117,3 +119,70 @@ Please pay attention to the `[num_bkt]`, we are using bucketing for all features
 ### 3. Performance
 
 ### 4. Find the interpretations
+
+
+## Appendix
+
+### Counting based hyperparameters
+
+#### `lv`:
+```text
+user train max - 34389, min - 1
+business train max - 17394, min - 1
+user test min included
+user test max included
+business test min included
+business test max 17395
+#. of fields: 8
+        feature useful_score - count 10
+        feature yelping_years - count 10
+        feature cool_score - count 10
+        feature elite_count - count 10
+        feature avg_stars - count 10
+        feature review_count - count 10
+        feature fans_count - count 10
+        feature funny_score - count 10
+total distinct features: 80
+```
+
+#### `tor`:
+```text
+user train max - 9582, min - 1
+business train max - 9102, min - 1
+user test min included
+user test max included
+business test min included
+business test max included
+#. of fields: 8
+        feature avg_stars - count 10
+        feature cool_score - count 10
+        feature elite_count - count 10
+        feature fans_count - count 10
+        feature funny_score - count 10
+        feature review_count - count 10
+        feature useful_score - count 10
+        feature yelping_years - count 10
+80
+```
+
+#### `phx`:
+```text
+user train max - 11289, min - 1
+business train max - 9633, min - 1
+user test min included
+user test max included
+business test min included
+business test max included
+#. of fields: 8
+        feature avg_stars - count 10
+        feature cool_score - count 10
+        feature elite_count - count 10
+        feature fans_count - count 10
+        feature funny_score - count 10
+        feature review_count - count 10
+        feature useful_score - count 10
+        feature yelping_years - count 10
+80
+```
+
+

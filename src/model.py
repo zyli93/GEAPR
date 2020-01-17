@@ -81,10 +81,8 @@ class IRSModel:
 
         uf_rep, self.uf_attns = gatnet(
             name_scope="gat", embedding_mat=user_emb_mat, is_training=self.is_train,
-            adj_mat=self.batch_uf, input_indices=self.batch_user,
-            num_nodes=self.F.num_total_user, hid_rep_dim=self.F.hid_rep_dim,
-            n_heads=self.F.gat_nheads, ft_drop=self.F.gat_ft_dropout,
-            attn_drop=self.F.gat_coef_dropout)
+            adj_mat=self.batch_uf, input_indices=self.batch_user, hid_rep_dim=self.F.hid_rep_dim,
+            n_heads=self.F.gat_nheads, ft_drop=self.F.gat_ft_dropout, attn_drop=self.F.gat_coef_dropout)
 
         # ===========================
         #      Attention FM
