@@ -20,3 +20,9 @@
 ## Problems
 1. Some of the raters are mean. They don't have ratings above a certain number.
 
+
+## Debugging notes
+
+1. ValueError: setting an array element with a sequence.
+input shape doesn't match with placeholder shape
+it 

@@ -18,8 +18,8 @@ def train(flags, model, dataloader):
     """
 
     F = flags
-    ckpt_dir = "./ckpt/{}_{}/".format(F.trial_id, F.dataset)
-    perf_file = "./performance/{}.perf".format(F.trial_id)
+    ckpt_dir = "./output/ckpt/{}_{}/".format(F.trial_id, F.dataset)
+    perf_file = "./output/performance/{}_{}.perf".format(F.trial_id, F.dataset)
 
     # === Saver ===
     saver = tf.train.Saver(max_to_keep=10)
@@ -55,15 +55,24 @@ def train(flags, model, dataloader):
             # bP: (batch_size, 1); bN: (batch_size * nsr, 1)
             for bI, bU, bP, bN in trn_iter:
                 bUf, bUsc = dataloader.get_user_graphs(bU)
+                print(type(bUf))
+                print(type(bUsc))
+
+                bUsc, bUf = bUsc.toarray(), bUf.toarray()
+                print(type(bUf))
+                print(type(bUsc))
+
                 bUattr = dataloader.get_user_attributes(bU)
+                print("print shapes of bU, bN, ")
+                print(bU.shape, bP.shape, bN.shape)
                 print("print shape of bUf, bUsc, bUattr")
-                print(bUf.shape, bUsc.shape, bUattr)
+                print(bUf.shape, bUsc.shape, bUattr.shape)
 
                 # run training operation
                 _, gs, loss = sess.run(
                     fetches=[model.train_op, model.global_step, model.loss],
                     feed_dict={
-                        model.is_training: True, model.batch_user: bU,
+                        model.is_train: True, model.batch_user: bU,
                         model.batch_pos: bP, model.batch_neg: bN,
                         model.batch_uf: bUf, model.batch_usc: bUsc,
                         model.batch_uattr: bUattr})
@@ -118,7 +127,7 @@ def evaluate(is_test, model, dataloader, F, sess):
 
         scores = sess.run(fetches=[model.test_scores],
             feed_dict={
-                model.is_training: False,
+                model.is_train: False,
                 model.batch_user: tv_bU, model.batch_uattr: tv_buattr,
                 model.batch_uf: tv_buf, model.batch_usc: tv_busc})
         scores_list.append(scores)
@@ -142,7 +151,7 @@ def validation(model, epoch, sess, dataloader, F):
     # score (b, n+1)
     scores = sess.run(fetches=[model.test_scores],
         feed_dict={
-            model.is_training: False,
+            model.is_train: False,
             model.batch_user: valU, model.batch_uattr: val_uattr,
             model.batch_uf: val_uf, model.batch_usc: val_usc})
 

@@ -30,8 +30,8 @@ def autoencoder(input_features, layers, name_scope, regularizer=None, initialize
 
         # encoder
         for i in range(len(layers)):
-            features = tf.layers.dense(inputs=features, units=layers[i],
-                activation=tf.nn.relu, use_bias=True,
+            features = tf.compat.v1.layers.dense(inputs=features,
+                units=layers[i], activation=tf.nn.relu, use_bias=True,
                 kernel_regularizer=regularizer, kernel_initializer=initializer,
                 bias_regularizer=regularizer, name="usc_enc_{}".format(i))
 
@@ -60,7 +60,8 @@ def autoencoder(input_features, layers, name_scope, regularizer=None, initialize
 
 
 def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, attr_size,
-                   is_training, initializer=None, regularizer=None, dropout_keep=None):
+                   is_training, use_dropout, dropout_rate,
+                   initializer=None, regularizer=None):
     """attentional factorization machine for attribute feature extractions
 
     Shapes:
@@ -78,7 +79,8 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, 
         is_training - [tf.placeholder bool] the placeholder indicating whether traing/test
         feat_size - [int] total number of distinct features (fields) for FM, A
         attr_size - [int] total number of fields , abbrev. k
-        dropout_keep - [bool] whether to use dropout in AFM
+        use_dropout - [bool] whether to use dropout in AFM
+        dropout_rate - [float] the ratio of dropout (only when `use_dropout`=True)
 
     Returns:
         afm - attentional factorization machine output
@@ -106,8 +108,8 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, 
                     tf.multiply(uattr_emb[:, i, :], uattr_emb[:, j, :]))
 
         element_wise_prod = tf.stack(element_wise_prod_list, axis=1)
-        interactions = tf.reduce_sum(element_wise_prod, axis=2)  # b * (k*(k-1))
-        num_interactions = attr_size * (attr_size - 1) / 2  # aka: k *(k-1)
+        # interactions = tf.reduce_sum(element_wise_prod, axis=2)  # b * (k*(k-1))
+        num_interactions = attr_size * (attr_size - 1) // 2  # aka: k *(k-1)
 
         # attentional part
         attn_mul = tf.reshape(
@@ -124,8 +126,9 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, 
 
         afm = tf.reduce_sum(tf.multiply(attn_out, element_wise_prod), axis=1, name="afm")
         # afm: b*(k*(k-1))*h => b*h
-        if dropout_keep:
-            afm = tf.layers.dropout(afm, dropout_keep, training=is_training)
+        if use_dropout:
+            print(use_dropout, dropout_rate)
+            afm = tf.layers.dropout(afm, dropout_rate, training=is_training)
 
         attn_out = tf.squeeze(attn_out, name="attention_output")
 
@@ -230,7 +233,8 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,
             attns.append(attn)
 
         h_1 = tf.concat(hidden_features, axis=-1)  # [n_head*(b, oz)] => (b, oz*n_head)
-        logits = tf.layers.conv1d(h_1, hid_rep_dim, 1, use_bias=False)  # (b, oz)
+        # logits = tf.layers.conv1d(h_1, hid_rep_dim, 1, use_bias=False)  # (b, oz)
+        logits = tf.layers.dense(h_1, hid_rep_dim, use_bias=False)
 
         return logits,  attns
 
@@ -268,11 +272,12 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
 
     with tf.name_scope("gat_attn_head_{}".format(head_id)):
         if ft_drop != 0.0:
-            emb_lookup = tf.layers.dropout(emb_lookup, ft_drop, training=is_training)
+            emb_lookup = tf.compat.v1.layers.dropout(
+                emb_lookup, ft_drop, training=is_training)
 
         # W*(whole-emb_mat), h->Wh, from R^f to R^F', (n, oz)
         # hid_emb_lookup = tf.layers.conv1d(emb_lookup, output_size, 1, use_bias=False)
-        hid_emb_lookup = tf.layers.dense(emb_lookup, output_size, use_bias=False)
+        hid_emb_lookup = tf.compat.v1.layers.dense(emb_lookup, output_size, use_bias=False)
 
         # the batch of Wh's of the users, (b, oz)
         b_hid_emb = tf.nn.embedding_lookup(hid_emb_lookup, input_indices)
@@ -282,7 +287,7 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
         # f_2 = tf.layers.conv1d(hid_emb_lookup, 1, 1)  # (n, 1)
         f_1 = tf.layers.dense(b_hid_emb, 1)  # (b, 1)
         f_2 = tf.layers.dense(hid_emb_lookup, 1)  # (n, 1)
-        logits = f_1 + tf.transpose(f_2, [0, 2, 1])  # (b, n)
+        logits = f_1 + tf.transpose(f_2)  # (b, n)
         coefs = tf.nn.softmax(tf.nn.leaky_relu(logits) + bias_mat)  # (b, n)
 
         if coef_drop != 0.0:
@@ -312,9 +317,9 @@ def get_embeddings(vocab_size, num_units, name_scope, zero_pad=False):
         embedding matrix - [float] (V+1, d)
     """
 
-    with tf.variable_scope(name_scope, reuse=tf.AUTO_REUSE):
-        embeddings = tf.get_variable('embedding_matrix', dtype=tf.float32,
-            shape=[vocab_size, num_units],
+    with tf.compat.v1.variable_scope(name_scope, reuse=tf.compat.v1.AUTO_REUSE):
+        embeddings = tf.compat.v1.get_variable('embedding_matrix',
+            dtype=tf.float32, shape=[vocab_size, num_units],
             initializer=tf.contrib.layers.xavier_initializer())
         if zero_pad:
             embeddings = tf.concat((tf.zeros(shape=[1, num_units]),
@@ -340,4 +345,4 @@ def centroid_corr(centroid_mat, name_scope):
         denominator = tf.matmul(rss_sqrt, rss_sqrt, transpose_b=True)  # (c,c)
         corr_cost = tf.truediv(numerator, denominator)
 
-    return corr_cost
+    return tf.reduce_sum(corr_cost)

@@ -5,10 +5,10 @@
 
 """
 
+import numpy as np
 import pandas as pd
 from scipy.sparse import load_npz
 
-# from utils import *
 from utils import load_pkl
 
 
@@ -18,6 +18,7 @@ YELP_CITY = YELP_PARSE + "citycluster/"
 YELP_INTERACTION = YELP_PARSE + "interactions/"
 YELP_TRAINTEST = YELP_PARSE + "train_test/"
 YELP_GRAPH = "./data/graph/yelp/"
+
 
 class DataLoader:
     """docstring of DataLoader"""
@@ -80,7 +81,6 @@ class DataLoader:
             "test": self.test_instances,
         }
 
-
     def get_train_batch_iterator(self):
         """Create a train batch data iterator
 
@@ -99,17 +99,16 @@ class DataLoader:
             self.train_neg[x], size=self.nsr, replace=True)
 
         bs = self.f.batch_size
-        total_batch = len(data) // self.f.batch_size
+        total_batch = len(self.train_pos) // self.f.batch_size
         for i in range(total_batch):
             batch = self.train_pos[i * bs: (i+1) * bs]
-            batch_users = batch_pos[:, 0]
-            batch_items_pos = batch_pos[:, 1]
+            batch_users = batch[:, 0]
+            batch_items_pos = batch[:, 1]
             # batch_items_neg shape: (batch_size*nsr, 1)
             batch_items_neg = np.array(
-                [neg_sample_func[x] for x in batch_users]).flatten()
+                [neg_sample_func(x) for x in batch_users]).flatten()
 
             yield (i, batch_users, batch_items_pos, batch_items_neg)
-
 
     def get_user_graphs(self, user_array):
         """get the graph information of users
@@ -130,7 +129,6 @@ class DataLoader:
         # return uf_mat, usc_mat, uf_nbr
         return uf_mat, usc_mat
 
-
     def get_user_attributes(self, user_array):
         """get the user attributes matrixs
 
@@ -141,9 +139,10 @@ class DataLoader:
         """
         return self.user_attr[user_array]
 
-
     def get_item_attributes(self, item_array):
-        """get the item attributes matrixs
+        """get the item attributes matrixs.
+
+        TODO: Will add item related features in later versions.
 
         [Not used]
 
@@ -152,8 +151,7 @@ class DataLoader:
         Returns:
             item attribute submatrix
         """
-        return self.item_attr.iloc[item_array]
-
+        raise NotImplementedError
 
     def get_dataset_size(self):
         """get the size of datasets
@@ -181,6 +179,6 @@ class DataLoader:
         else:
             user_id_list = list(self.test_instances.keys())
 
-        ground_truth_list = [self.test_instances[x] for x in ret_user_list]
+        ground_truth_list = [self.test_instances[x] for x in user_id_list]
 
         return user_id_list, ground_truth_list

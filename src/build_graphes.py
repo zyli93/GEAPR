@@ -110,7 +110,7 @@ def load_user_friend(dir_):
         row += [u1] * len(u2_list)
         col += u2_list
     data = [1] * len(row)
-    uf_graph = csr_matrix((data, (row, col)), shape=(n_users, n_users))
+    uf_graph = csr_matrix((data, (row, col)), shape=(n_users+1, n_users+1))
 
     return uf_dict, uf_graph
 

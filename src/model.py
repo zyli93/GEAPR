@@ -1,6 +1,11 @@
 """Model for IRSFN
 
     @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
+
+    Notes:
+        get_embeddings:
+            Emb mat cardinality add one (+1) because the user/item/attribute
+            id are from 1 to # of user. Adding one to avoid overflow.
 """
 
 import tensorflow as tf
@@ -20,20 +25,27 @@ class IRSModel:
         self.F = flags
 
         # Placeholders
-        self.batch_user = tf.placeholder(
-            shape=[None], dtype=tf.int32, name="batch_user")
-        self.batch_pos = tf.placeholder(
-            shape=[None], dtype=tf.int32, name="batch_pos_item")
-        self.batch_neg = tf.placeholder(
-            shape=[None], dtype=tf.int32, name="batch_neg_item")  # (b*nsr)
-        self.batch_uf = tf.placeholder(shape=[None, self.F.num_total_user],
+        self.batch_user = tf.compat.v1.placeholder(
+            shape=[None, ], dtype=tf.int32, name="batch_user")
+        self.batch_pos = tf.compat.v1.placeholder(
+            shape=[None, ], dtype=tf.int32, name="batch_pos_item")
+        self.batch_neg = tf.compat.v1.placeholder(
+            shape=[None, ], dtype=tf.int32, name="batch_neg_item")  # (b*nsr)
+        self.batch_uf = tf.compat.v1.placeholder(shape=[None, self.F.num_total_user],
             dtype=tf.int32, name="batch_user_friendship")
-        self.batch_usc = tf.placeholder(shape=[None, self.F.num_total_item],
+        self.batch_usc = tf.compat.v1.placeholder(shape=[None, self.F.num_total_user],
             dtype=tf.float32, name="batch_user_struc_ctx")
-        self.batch_uattr = tf.placeholder(shape=[None, self.F.afm_num_total_user_attr],
+        self.batch_uattr = tf.compat.v1.placeholder(shape=[None, self.F.afm_num_field],
             dtype=tf.int32, name="batch_user_attribute")
-        self.is_train = tf.placeholder(
-            shape=[], dtype=tf.bool, name="training_flag")
+        self.is_train = tf.compat.v1.placeholder(
+            shape=(), dtype=tf.bool, name="training_flag")
+        print(self.batch_user)
+        print(self.batch_pos)
+        print(self.batch_neg)
+        print(self.batch_uf)
+        print(self.batch_usc)
+        print(self.batch_uattr)
+
 
         # fetch-ables
         self.loss = None  # overall loss
@@ -49,7 +61,8 @@ class IRSModel:
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
 
         # optimizer
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.F.learning_rate)
+        self.optimizer = tf.compat.v1.train.AdamOptimizer(
+            learning_rate=self.F.learning_rate)
 
         # build graph
         self.build_graph()
@@ -76,7 +89,7 @@ class IRSModel:
         # ===========================
         #   Graph Attention Network
         # ===========================
-        user_emb_mat = get_embeddings(vocab_size=self.F.num_total_user,
+        user_emb_mat = get_embeddings(vocab_size=self.F.num_total_user+1,
             num_units=self.F.embedding_dim, name_scope="gat", zero_pad=True)
 
         uf_rep, self.uf_attns = gatnet(
@@ -89,14 +102,15 @@ class IRSModel:
         # ===========================
         uattr_rep, self.uattr_attns = attentional_fm(
             name_scope="afm", input_features=self.batch_uattr, is_training=self.is_train,
-            emb_dim=self.F.embedding_dim, feat_size=self.F.afm_num_total_user_attr,
-            initializer=inilz, regularizer=reglr, dropout_keep=self.F.afm_dropout,
+            emb_dim=self.F.embedding_dim, feat_size=self.F.afm_num_total_user_attr+1,
+            initializer=inilz, regularizer=reglr,
+            use_dropout=self.F.afm_use_dropout, dropout_rate=self.F.afm_dropout_rate,
             hid_rep_dim=self.F.hid_rep_dim, attr_size=self.F.afm_num_field)
 
         # ===========================
         #      Item embedding
         # ===========================
-        item_emb_mat = get_embeddings(vocab_size=self.F.num_total_item,
+        item_emb_mat = get_embeddings(vocab_size=self.F.num_total_item+1,
             num_units=self.F.hid_rep_dim, name_scope="item_embedding_matrix", 
             zero_pad=True)
         pos_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_pos)  # (b,h)
@@ -112,16 +126,16 @@ class IRSModel:
         user_emb_attn = tf.nn.softmax(user_emb_attn, axis=1)  # (b,3,1)
         self.user_emb_agg_attn = tf.squeeze(user_emb_attn)  # (b,3), VIZ
         user_emb = tf.squeeze(
-            tf.matmul(user_emb, user_emb_attn, transpose_a=True))  # (b,h)
+            tf.matmul(user_emb, self.user_emb_agg_attn, transpose_a=True))  # (b,h)
 
         # ============================
         #   Centroids/Interests/Cost
         # ============================
         # Get users' centroid representation and logits
-        user_ct_rep, self.user_ct_logits = centroid(input_features=user_emb, 
+        user_ct_rep, self.user_ct_logits = centroid(input_features=user_emb,
             n_centroid=self.F.num_user_ctrd, emb_size=self.F.hid_rep_dim,
             tao=self.F.tao, name_scope="centroids", var_name="user_centroids",
-            activation=self.F.centroid_act, regularizer=reglr)  # (b,d)
+            activation=self.F.ctrd_activation, regularizer=reglr)  # (b,d)
 
         # Get items' centroid representation and logits
         item_ct_reps = []  # 0,pos; 1,neg
@@ -130,7 +144,7 @@ class IRSModel:
             tmp_ct_rep, tmp_ct_logits = centroid(input_features=x_item_emb,
                 n_centroid=self.F.num_item_ctrd, emb_size=self.F.hid_rep_dim,
                 tao=self.F.tao, name_scope="centroids", var_name="item_centroids",
-                activation=self.F.centroid_act, regularizer=reglr)
+                activation=self.F.ctrd_activation, regularizer=reglr)
             item_ct_reps.append(tmp_ct_rep)
             item_ct_logits.append(tmp_ct_logits)
 
@@ -141,8 +155,8 @@ class IRSModel:
             self.user_centroids = tf.get_variable(name="user_centroids")
             self.item_centroids = tf.get_variable(name="item_centroids")
 
-        user_ct_corr_cost = centroid_corr(self.user_centroids)
-        item_ct_corr_cost = centroid_corr(self.item_centroids)
+        user_ct_corr_cost = centroid_corr(self.user_centroids, "user_ctrd_corr")
+        item_ct_corr_cost = centroid_corr(self.item_centroids, "item_ctrd_corr")
 
         # ======================
         #       Losses
@@ -183,9 +197,13 @@ class IRSModel:
         # loss = final_loss + reconstruction in ae
         #        ae_reconstruction + centroid_correlation + regularization
         loss = final_loss
+        print(loss)
         loss += self.F.ae_recon_loss_weight * ae_recons_loss
+        print(loss)
         loss += self.F.ctrd_corr_weight * (user_ct_corr_cost + item_ct_corr_cost)
-        loss += tf.losses.get_regularization_losses()
+        print(loss)
+        loss += tf.compat.v1.losses.get_regularization_loss()
+        print(loss)
 
         # TODO: correct way to update loss
 

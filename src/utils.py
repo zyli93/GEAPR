@@ -23,8 +23,8 @@ def create_dirs(f):
     create `ckpt` and `performance` directory if needed
     """
     make_dir(OUTPUT_DIR)
-    make_dir_rec(OUTPUT_DIR + "/{}/ckpt/".format(f.trial_id))
-    make_dir_rec(OUTPUT_DIR + "/{}/performance/".format(f.trial_id))
+    make_dir_rec(OUTPUT_DIR + "/ckpt/")
+    make_dir_rec(OUTPUT_DIR + "/performance/")
 
 
 def make_dir(path):
