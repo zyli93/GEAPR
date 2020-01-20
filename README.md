@@ -17,6 +17,8 @@ There's nothing in this one now.
 
 ## Notes
 1. `src/build_graphes.py.old` is a file backuped on Nov.24.
+2. users average latitude and longitude should be taken from training data, 
+    but now I am taking from all data. need to change it later.
 
 ## Download raw dataset
 
@@ -98,8 +100,9 @@ Here are two tunable hyperparameters:
 
 We also need to extract features from the user side. Just run the following commands:
 ```bash
-$ python src/attributes_extractor.py [city] [num_bkl]
+$ python src/attributes_extractor.py [city]
 ```
+`city` can be `lv`, `tor`, `phx`, and `all`. `all` will auto run all cities.
 This will generate `processed_city_user_profile.csv`, `processed_city_business_profile.csv`, `processed_city_user_profile_distinct.csv`, and `cols_disc_info.pkl`.
 in `data/parse/yelp/citycluster/[city]`. 
 It will also print out the percentage of empty values under each feature column.

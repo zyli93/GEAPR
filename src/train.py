@@ -22,10 +22,10 @@ def train(flags, model, dataloader):
     perf_file = "./output/performance/{}_{}.perf".format(F.trial_id, F.dataset)
 
     # === Saver ===
-    saver = tf.train.Saver(max_to_keep=10)
+    saver = tf.compat.v1.train.Saver(max_to_keep=10)
 
     # === Configurations ===
-    config = tf.ConfigProto(
+    config = tf.compat.v1.ConfigProto(
         allow_soft_placement=True
         # , log_device_placement=True
     )
@@ -38,12 +38,12 @@ def train(flags, model, dataloader):
     print("=======================")
 
     # training
-    with tf.Session(config=config) as sess, \
+    with tf.compat.v1.Session(config=config) as sess, \
             open(perf_file, "w") as perf_writer:
 
         # initialization
-        sess.run(tf.local_variables_initializer())
-        sess.run(tf.global_variables_initializer())
+        sess.run(tf.compat.v1.local_variables_initializer())
+        sess.run(tf.compat.v1.global_variables_initializer())
 
         # batch data generator
         trn_iter = dataloader.get_train_batch_iterator()
@@ -55,18 +55,9 @@ def train(flags, model, dataloader):
             # bP: (batch_size, 1); bN: (batch_size * nsr, 1)
             for bI, bU, bP, bN in trn_iter:
                 bUf, bUsc = dataloader.get_user_graphs(bU)
-                print(type(bUf))
-                print(type(bUsc))
-
                 bUsc, bUf = bUsc.toarray(), bUf.toarray()
-                print(type(bUf))
-                print(type(bUsc))
 
                 bUattr = dataloader.get_user_attributes(bU)
-                print("print shapes of bU, bN, ")
-                print(bU.shape, bP.shape, bN.shape)
-                print("print shape of bUf, bUsc, bUattr")
-                print(bUf.shape, bUsc.shape, bUattr.shape)
 
                 # run training operation
                 _, gs, loss = sess.run(
@@ -123,17 +114,18 @@ def evaluate(is_test, model, dataloader, F, sess):
         # tv_: test or validation
         tv_bU = tv_U[i*bs: min((i+1)*bs, len(tv_U))]
         tv_buf, tv_busc = dataloader.get_user_graphs(tv_bU)
+        tv_buf, tv_busc = tv_buf.toarray(), tv_busc.toarray()
         tv_buattr = dataloader.get_user_attributes(tv_bU)
 
-        scores = sess.run(fetches=[model.test_scores],
+        b_scores = sess.run(fetches=model.test_scores,
             feed_dict={
                 model.is_train: False,
                 model.batch_user: tv_bU, model.batch_uattr: tv_buattr,
                 model.batch_uf: tv_buf, model.batch_usc: tv_busc})
-        scores_list.append(scores)
+        scores_list.append(b_scores)
 
     scores = np.concatenate(scores_list, axis=0)
-    assert len(scores) == len(tv_gt), \
+    assert scores.shape[0] == len(tv_gt), \
         "[evaluate] sizes of scores and ground truth don't match"
     eval_dict = metrics_poi(gt=tv_gt, pred_scores=scores, k_list=F.candidate_k)
     return eval_dict

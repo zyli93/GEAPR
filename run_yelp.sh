@@ -32,7 +32,7 @@ CUDA_VISIBLE_DEVICES=$1 python3 src/main_zyli.py \
     --batch_size 128 \
     --yelp_city tor \
     --nosave_model \
-    --log_per_iter 200 \
+    --log_per_iter 20 \
     --negative_sample_ratio 3 \
     --valid_set_size 256  --loss_type ranking \
     --learning_rate 0.0005 \
@@ -48,8 +48,8 @@ CUDA_VISIBLE_DEVICES=$1 python3 src/main_zyli.py \
     --gat_coef_dropout 0.3 \
     --afm_use_dropout \
     --afm_dropout_rate 0.3 \
-    --afm_num_total_user_attr 80 \
-    --afm_num_field 8 \
+    --afm_num_total_user_attr 140 \
+    --afm_num_field 10 \
     --num_user_ctrd 16 \
     --num_item_ctrd 16 \
     --ctrd_corr_weight 0.01 \

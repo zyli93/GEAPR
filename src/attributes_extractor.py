@@ -1,51 +1,36 @@
 """User and Business attributes extractor for yelp
 
-    Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
+Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
     Notes:
         1. All vacant default of features are set as CNT_DFL.
-        2. load data from
-        /local2/zyli/irs_fn/data/parse/yelp/preprocess/{user_profile.pkl, business_profile.pkl}
-        3. for user:
-            3.1 count the coverage of attributes that we are interested in
-                - elite (e.g.: [2012, 2013])
-                - review_count
-                - funny/cool/useful
-                - average_stars
-                - yelp_since
-            3.2 see if there are users that don't have above features
-        4. for business:
-            4.1 parse diff categories
-            4.2 count cat coverage
-            4.3 other attributes:
-                - longitude
-                - latitude
-                - stars
-                - review count
-                - name
-        5. install user/business data features in table
+        2. load data from INPUT_DIR (see below)
+        3. Only user self features and user loc features are used.
+            Loc features are learned from business average.
+        4. Business features are not used for this time.
 
-    TODO: 
-        - user location by lat and lng
-        - allow different number of attributes
+    TODO:
+        - user max/min lat/long not added yet
 """
 
 import sys
-
 from datetime import datetime
 import pandas as pd
 from dateutil import parser
+import configparser
+from sklearn.preprocessing import LabelEncoder
 
 try:
     import _pickle as pickle
 except ImportError:
     import pickle
 
-from utils import dump_pkl
+from utils import dump_pkl, load_pkl
 
 # Global variables
 INPUT_DIR = "data/parse/yelp/citycluster/"
 OUTPUT_DIR = "data/parse/yelp/citycluster/"
+TRNTST_DIR = "data/parse/yelp/train_test/"
 
 CNT_DFL = 0
 STAR_DFL = 3
@@ -54,26 +39,31 @@ NAME_DFL = "No Name Business"
 EMPTY_CATS = 'NoCategories'
 
 ATTR_CONFIG = "configs/user_attr_discrete.txt"
+ATTR_CONFIG_V2 = "configs/columns_{}.ini"  # This is implemented by configparser
 
-# Global mappings
+
+def load_configs(city):
+    """Automatic load the configs of columns"""
+    config = configparser.ConfigParser()
+    config.read(ATTR_CONFIG_V2.format(city))
+    return config
 
 
 def extract_user_attr(city):
     """extract user attributes
-
     Args:
+
         city - the city to profess
-
-    Print-outs:
+    Save to disk:
         df_nonzero - non zero number ratios of each attribute
-
     Return:
         df_nonzero - as above.
     """
 
     print("\t[user] loading user interaction from {}...".format(city))
-    with open(INPUT_DIR + "{}/city_user_profile.pkl".format(city), "rb") as fin:
-        user_profile = pickle.load(fin)
+
+    user_profile = load_pkl(INPUT_DIR + "{}/city_user_profile.pkl".format(city))
+    user_loc = load_pkl(INPUT_DIR + "{}/city_user_loc.pkl".format(city))
 
     user_data_csv = []
     user_data_pkl = {}
@@ -91,6 +81,8 @@ def extract_user_attr(city):
         tmp_entry['cool_score'] = prof_dict.get('cool', CNT_DFL)  # cool
         tmp_entry['useful_score'] = prof_dict.get('useful', CNT_DFL)  # useful
         tmp_entry['avg_stars'] = prof_dict.get('average_stars', STAR_DFL)  # average stars
+        tmp_entry['mean_lat'] = user_loc[uid]["mean_lat"]
+        tmp_entry['mean_long'] = user_loc[uid]["mean_long"]
 
         reg_yelp_date = prof_dict.get('yelping_since', DATE_DFL)  # yelping years
         delta_time = datetime.today() - parser.parse(reg_yelp_date)
@@ -100,8 +92,16 @@ def extract_user_attr(city):
         user_data_csv.append(tmp_entry)
         user_data_pkl[uid] = tmp_entry
 
-    # create dataframe
+    # create data frame
+    empty_head_entry = pd.DataFrame({'elite_count': 0, "review_count": CNT_DFL,
+        "fans_count": CNT_DFL, "funny_score": CNT_DFL, "cool_score": CNT_DFL,
+        "useful_score": CNT_DFL, "avg_stars": STAR_DFL, "yelping_years": 0,
+        "mean_lat": CNT_DFL, "mean_long": CNT_DFL}, index=[0])
     df_user_profile = pd.DataFrame(user_data_csv)
+    assert empty_head_entry.shape[1] == df_user_profile.shape[1]
+    df_user_profile = pd.concat([empty_head_entry, df_user_profile],
+                              axis=0, sort=True).reset_index(drop=True)
+    print("\t[user] length of `df_user_profile` {}".format(df_user_profile.shape[0]))
 
     # non-zero count attributes
     df_nonzero = df_user_profile.fillna(0).astype(bool).sum(axis=0)
@@ -118,74 +118,7 @@ def extract_user_attr(city):
     return df_nonzero
 
 
-def extract_business_attr(city):
-    """extract business attributes
-
-    Args:
-        city - the city to profess
-    Print-outs:
-        df_nonzero - non zero number ratios of each attribute
-    Store:
-        bus_cat_dicts - business category
-    Return:
-        df_nonzero - as above.
-    """
-
-    print("\t[business] loading business interaction {}...".format(city))
-    with open(INPUT_DIR + "{}/city_business_profile.pkl".format(city), "rb") as fin:
-        business_profile = pickle.load(fin)
-
-    business_data_csv = []
-    business_data_pkl = {}
-
-    bus_cat_dicts = {EMPTY_CATS: 0}
-
-    # process users, NOTE: user new index starts with 1
-    for bid, prof_dict in business_profile.items():
-        # --- create feature area ---
-        tmp_entry = dict()
-        categories = prof_dict.get("categories")
-        if not categories:  # one outlier without categories (recorded as `None`)
-            tmp_entry['category_indices'] = [EMPTY_CATS]
-        else:
-            categories = categories.strip().split(", ")
-            tmp_entry['category_indices'] = []
-            for cat in categories:
-                if cat not in bus_cat_dicts:
-                    bus_cat_dicts[cat] = len(bus_cat_dicts)
-                tmp_entry['category_indices'].append(bus_cat_dicts[cat])
-        tmp_entry['review_count'] = prof_dict.get('review_count', CNT_DFL)  # review_count
-
-        tmp_entry['stars'] = prof_dict.get('stars', STAR_DFL)
-        tmp_entry['name'] = prof_dict.get('name', NAME_DFL)  # confirmed that all bus have names
-        tmp_entry['longitude'] = prof_dict.get('longitude')
-        tmp_entry['latitude'] = prof_dict.get('latitude')
-        # --- end create feature area ---
-
-        business_data_csv.append(tmp_entry)
-        business_data_pkl[bid] = tmp_entry
-
-    # create dataframe
-    df_business_profile = pd.DataFrame(business_data_csv)
-
-    # non-zero
-    df_nonzero = df_business_profile.fillna(0).astype(bool).sum(axis=0)
-    df_nonzero = df_nonzero / len(df_business_profile)
-    print("\t[business] non-zero terms in `df_business_profile`")
-    print(df_nonzero)
-
-    print("\t[business] saving dataframe to {}".format(OUTPUT_DIR))
-    df_business_profile.to_csv(
-        OUTPUT_DIR+"{}/processed_city_business_profile.csv".format(city), index=False)
-    dump_pkl(OUTPUT_DIR+"{}/processed_city_business_profile.pkl".format(city), business_data_pkl)
-
-    print("\t[business] saving categories dictionary")
-    dump_pkl(OUTPUT_DIR+"{}/bus_cat_idx_dict.pkl".format(city), bus_cat_dicts)
-
-    return df_nonzero
-
-
-def discretize_field_attr(city, num_bkt):
+def discretize_field_attr(city):
     """Discretize continuous fields to
 
     Starting from 1 instead of 0
@@ -194,6 +127,8 @@ def discretize_field_attr(city, num_bkt):
 
     Returns:
         c - city
+
+        [DEPRECATED]
         num_bkt - the number of buckets for embedding continuous values
             >0 for a `num_bkt` number of buckets
             -1 for a total discretize, i.e., take integers as discrete values
@@ -201,48 +136,53 @@ def discretize_field_attr(city, num_bkt):
     avg_stars,cool_score,elite_count,fans_count,funny_score,review_count,
     useful_score,yelping_years
     """
-    with open(ATTR_CONFIG, "r") as fin:
-        lines = fin.readlines()
-        discrete_attrs = set([x.strip() for x in lines])
+
+    col_configs = load_configs(city)
 
     print("\t[user] discretize - loading user attrs")
     df = pd.read_csv(INPUT_DIR + "{}/processed_city_user_profile.csv".format(city))
     cols_disc_info = dict()
-    distinct_ft_count = 1
-    distinct_cols_list = []
-
-    distinct_df_col_names = []
-    distinct_df_cols = []
+    ft_idx_start = 1
+    distinct_df_col_names, distinct_df_cols = [], []
+    le = LabelEncoder()  # create for transforming CAT features
 
     for col in df.columns:
         # treat attribute as discrete variable
-        if col in discrete_attrs:
-            num_vals = df[col].unique()
-            vals_map = dict(zip(num_vals, range(0, len(num_vals))))
+        # if col in discrete_attrs:
+        if col in col_configs['CATEGORICAL']:
+            distinct_df_cols.append(pd.Series(le.fit_transform(df[col]))+ft_idx_start)
             distinct_df_col_names.append(col+"_d_dist")
-            distinct_df_cols.append(
-                df[col].apply(lambda x: vals_map[x]+distinct_ft_count))
-            # df.assign(col+"_dist", lambda x: vals_map(x)+distinct_ft_count)
-            entry = {"bucket": False,
-                    "value_map": vals_map, "count": num_vals}
-            distinct_ft_count += num_vals
+            num_vals = len(le.classes_)
+            vals_map_to = le.transform(le.classes_) + ft_idx_start
+            vals_map = dict(zip(le.classes_, vals_map_to))
+            entry = {"bucket": False, "value_map": vals_map, "count": num_vals,
+                     "max_idx": max(vals_map_to), "min_idx": min(vals_map_to)}
+            ft_idx_start += num_vals
 
         # treat attribute as continuous variable
-        else:
+        # else:
+        elif col in col_configs['NUMERICAL']:
+            num_bkt = col_configs.getint("NUMERICAL", col)
             max_val, min_val = df[col].max(), df[col].min()
-            gap = (max_val - min_val) / num_bkt
-            distinct_df_col_names.append(col+"_c_dist")
-            distinct_df_cols.append(
-                df[col].apply(lambda x: int(((x-min_val) // gap + distinct_ft_count))))
+            # # Say goodbye to this stupid way of implementation
+            # gap = (max_val - min_val) / num_bkt
+            # distinct_df_col_names.append(col+"_c_dist")
+            # distinct_df_cols.append(
+            #     df[col].apply(lambda x: int(((x-min_val) // gap + distinct_ft_count))))
             # df.assign(col + "_dist", lambda x: int((x // gap + distinct_ft_count)))
+
+            distinct_df_col_names.append(col + "_c_dist")
+            distinct_df_cols.append(
+                pd.cut(df[col], num_bkt,
+                       labels=range(ft_idx_start, ft_idx_start+num_bkt)))
             entry = {"bucket": True,
                     "max_val": max_val, "min_val": min_val, "count": num_bkt,
-                    "min_disc_token": distinct_ft_count,
-                    "max_disc_token": distinct_ft_count + num_bkt}
-            distinct_ft_count += num_bkt
+                    "min_idx": ft_idx_start, "max_idx": ft_idx_start + num_bkt - 1}
+            ft_idx_start += num_bkt
+        else:
+            raise KeyError("{} is NOT configured in `columns_{}.ini`".format(col, city))
 
-        cols_disc_info[col]  = entry
-        
+        cols_disc_info[col] = entry
 
     df_disc = pd.DataFrame(data=dict(zip(distinct_df_col_names, distinct_df_cols)))
     print("\t[user] discretize - saving dist. attr. and info to {}".format(OUTPUT_DIR))
@@ -251,30 +191,57 @@ def discretize_field_attr(city, num_bkt):
     dump_pkl(OUTPUT_DIR + "{}/cols_disc_info.pkl".format(city), cols_disc_info)
 
 
+def compute_user_avg_loc(city):
+    """compute average latitude and longitude of businesses each user visited
+
+    Arg:
+        city - the city
+    """
+    print("\t[user] computing location features")
+    # df = pd.read_csv(TRNTST_DIR + "{}/train_pos.csv".format(city))
+    df = pd.read_csv(INPUT_DIR + "{}/user_business_interaction.csv".format(city))
+    bus_profile = load_pkl(INPUT_DIR + "{}/city_business_profile.pkl".format(city))
+
+    # df.assign(business_latitude=lambda x: bus_profile[x.business]["latitude"])
+    # df.assign(business_longitude=lambda x: bus_profile[x.business]["longitude"])
+
+    b_lat_dict = dict([(k, v["latitude"]) for k, v in bus_profile.items()])
+    b_long_dict = dict([(k, v["longitude"]) for k, v in bus_profile.items()])
+
+    df = df.assign(bus_lat=df.business.map(b_lat_dict))
+    df = df.assign(bus_long=df.business.map(b_long_dict))
+
+    # "ll": latitude and longitude
+    print("\t[user] aggregating location (lat and long) by user")
+    df_loc = df.groupby("user").agg({"bus_lat": ['max', 'min', 'mean'],
+                                     "bus_long": ['max', 'min', 'mean']})
+
+    # rename max, min, mean col to max_lat, min_lat, or mean_at. Same as `long`
+    # while still maintaining the index as `user`
+    user_lat = df_loc.bus_lat.reset_index()
+    user_long = df_loc.bus_long.reset_index()
+    user_loc = user_lat.join(user_long, on="user", how="outer",
+                             lsuffix="_lat", rsuffix="_long")
+    user_loc = user_loc.fillna(user_loc.mean())  # now `user` is column
+    user_loc_dict = user_loc.set_index("user").to_dict(orient="index")
+    dump_pkl(OUTPUT_DIR + "{}/city_user_loc.pkl".format(city), user_loc_dict)
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2 + 1:
-        print("python {} [city] [bucket_num]".format(sys.argv[0]))
+    if len(sys.argv) < 1 + 1:
+        print("python {} [city]".format(sys.argv[0]))
         raise ValueError("invalid input")
 
     city = sys.argv[1]
-    num_bkt = int(sys.argv[2])
-
-    assert city in ["lv", "phx", "tor", "all"], \
-            "invalid city, should be `all`, `lv`, `phx`, or `tor`"
-    assert num_bkt > 0 or num_bkt == -1, "invalid `bucket_num`, should be gt 0"
-
+    assert city in ["lv", "phx", "tor", "all"]
     city = ['lv', 'phx', 'tor'] if city == "all" else [city]
 
     for c in city:
+        print("[attribute extractor] computing user avg Lat and Long")
+        compute_user_avg_loc(c)
+
         print("[attribute extractor] building user attributes {}".format(c))
         extract_user_attr(c)
 
         print("[attribute extractor] attribute to discrete values user")
-        discretize_field_attr(c, num_bkt)
-
-        # note: 
-        #   did not implement business attribute extraction
-
-        # print("[attribute extractor] building business attributes {}".format(c))
-        # extract_business_attr(c)
-        # print("[attribute extractor] attribute to discrete values business")
+        discretize_field_attr(c)

@@ -8,6 +8,8 @@
             id are from 1 to # of user. Adding one to avoid overflow.
 """
 
+import sys
+
 import tensorflow as tf
 from modules import get_embeddings
 from modules import autoencoder, gatnet, attentional_fm
@@ -31,9 +33,9 @@ class IRSModel:
             shape=[None, ], dtype=tf.int32, name="batch_pos_item")
         self.batch_neg = tf.compat.v1.placeholder(
             shape=[None, ], dtype=tf.int32, name="batch_neg_item")  # (b*nsr)
-        self.batch_uf = tf.compat.v1.placeholder(shape=[None, self.F.num_total_user],
+        self.batch_uf = tf.compat.v1.placeholder(shape=[None, self.F.num_total_user+1],
             dtype=tf.int32, name="batch_user_friendship")
-        self.batch_usc = tf.compat.v1.placeholder(shape=[None, self.F.num_total_user],
+        self.batch_usc = tf.compat.v1.placeholder(shape=[None, self.F.num_total_user+1],
             dtype=tf.float32, name="batch_user_struc_ctx")
         self.batch_uattr = tf.compat.v1.placeholder(shape=[None, self.F.afm_num_field],
             dtype=tf.int32, name="batch_user_attribute")
@@ -45,7 +47,6 @@ class IRSModel:
         print(self.batch_uf)
         print(self.batch_usc)
         print(self.batch_uattr)
-
 
         # fetch-ables
         self.loss = None  # overall loss
@@ -120,13 +121,13 @@ class IRSModel:
         #      User embedding
         # ==========================
         # TODOL normalization?
-        user_emb = tf.concat(values=[uf_rep, usc_rep, uattr_rep], axis=1)  # (b,3,h)
+        user_emb = tf.stack(values=[uf_rep, usc_rep, uattr_rep], axis=1)  # (b,3,h)
         user_emb_attn = tf.layers.dense(user_emb, units=1, activation=tf.nn.relu,
                 use_bias=False, kernel_initializer=inilz)  # (b,3,1)
         user_emb_attn = tf.nn.softmax(user_emb_attn, axis=1)  # (b,3,1)
         self.user_emb_agg_attn = tf.squeeze(user_emb_attn)  # (b,3), VIZ
         user_emb = tf.squeeze(
-            tf.matmul(user_emb, self.user_emb_agg_attn, transpose_a=True))  # (b,h)
+            tf.matmul(user_emb, user_emb_attn, transpose_a=True))  # (b,h)
 
         # ============================
         #   Centroids/Interests/Cost
@@ -151,9 +152,9 @@ class IRSModel:
         self.pos_item_ct_logits = item_ct_logits[0],
         self.neg_item_ct_logits = item_ct_logits[1]
 
-        with tf.variable_scope("centroids", reuse=tf.AUTO_REUSE):
-            self.user_centroids = tf.get_variable(name="user_centroids")
-            self.item_centroids = tf.get_variable(name="item_centroids")
+        with tf.compat.v1.variable_scope("centroids", reuse=tf.AUTO_REUSE):
+            self.user_centroids = tf.compat.v1.get_variable(name="user_centroids")
+            self.item_centroids = tf.compat.v1.get_variable(name="item_centroids")
 
         user_ct_corr_cost = centroid_corr(self.user_centroids, "user_ctrd_corr")
         item_ct_corr_cost = centroid_corr(self.item_centroids, "item_ctrd_corr")
@@ -197,13 +198,9 @@ class IRSModel:
         # loss = final_loss + reconstruction in ae
         #        ae_reconstruction + centroid_correlation + regularization
         loss = final_loss
-        print(loss)
         loss += self.F.ae_recon_loss_weight * ae_recons_loss
-        print(loss)
         loss += self.F.ctrd_corr_weight * (user_ct_corr_cost + item_ct_corr_cost)
-        print(loss)
         loss += tf.compat.v1.losses.get_regularization_loss()
-        print(loss)
 
         # TODO: correct way to update loss
 
@@ -215,13 +212,16 @@ class IRSModel:
         #   Generate score
         # ======================
         """Generate score for testing time
-        
-        input: user_ct_rep, item_emb_mat
-        """
+        input: user_ct_rep, item_emb_mat"""
+
+        # TODO: really reusing? why "centroids_4"
         all_item_ct_rep, _ = centroid(
             input_features=item_emb_mat, n_centroid=self.F.num_item_ctrd,
             emb_size=self.F.hid_rep_dim, tao=self.F.tao, name_scope="centroids", 
-            var_name="item_centroids", activation=self.F.ctrd_activation, 
+            var_name="item_centroids", activation=self.F.ctrd_activation,
             regularizer=reglr)  # (n,h)
 
+        print(user_ct_rep)
+        print(all_item_ct_rep)
         self.test_scores = tf.matmul(user_ct_rep, all_item_ct_rep, transpose_b=True)  # (b,n)
+        print(self.test_scores)

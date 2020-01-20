@@ -76,7 +76,6 @@ flags.DEFINE_boolean("afm_use_dropout", False, "Whether to use dropout in attent
 flags.DEFINE_float("afm_dropout_rate", 0.3, "The dropout rate for attentional FM")
 flags.DEFINE_integer("afm_num_total_user_attr", None, "Number of total user attributes")
 flags.DEFINE_integer("afm_num_field", None, "Number of fields of user attributes")
-# TODO: add this to run bash
 
 # Centroid
 flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")

@@ -50,7 +50,8 @@ def user_attr_count(cc_dir):
     col_dict = load_pkl(cc_dir+"cols_disc_info.pkl")
     print("#. of fields: {}".format(len(col_dict.keys())))
     for k, v in col_dict.items():
-        print("\tfeature {} - count {}".format(k, v['count']))
+        print("\tfeature {} - count {}, bkt {}, max {}, min {}"
+              .format(k, v['count'], v['bucket'], v['max_idx'], v['min_idx']))
     total_feature = sum([x['count'] for x in col_dict.values()])
     print(total_feature)
 
@@ -69,8 +70,11 @@ if __name__ == "__main__":
         print("\tpython {} [yelp_city]".format(sys.argv[0]))
         sys.exit()
 
-    city = sys.argv[1]
-    cc_dir = "./data/parse/yelp/citycluster/{}/".format(city)  # cc: city cluster
-    tt_dir = "./data/parse/yelp/train_test/{}/".format(city)
-
-    main(cc_dir, tt_dir)
+    all_cities = ["lv", "tor", "phx"]
+    cities = sys.argv[1]
+    assert cities in all_cities or cities == "all"
+    cities = all_cities if cities == "all" else [cities]
+    for city in cities:
+        cc_dir = "./data/parse/yelp/citycluster/{}/".format(city)  # cc: city cluster
+        tt_dir = "./data/parse/yelp/train_test/{}/".format(city)
+        main(cc_dir, tt_dir)

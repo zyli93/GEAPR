@@ -179,6 +179,6 @@ class DataLoader:
         else:
             user_id_list = list(self.test_instances.keys())
 
-        ground_truth_list = [self.test_instances[x] for x in user_id_list]
+        ground_truth_list = [self.test_instances[x].tolist() for x in user_id_list]
 
         return user_id_list, ground_truth_list

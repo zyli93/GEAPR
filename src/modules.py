@@ -88,18 +88,18 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, 
 
     """
 
-    with tf.variable_scope(name_scope) as scope:
+    with tf.compat.v1.variable_scope(name_scope) as scope:
         embedding_mat = get_embeddings(vocab_size=feat_size, num_units=emb_dim,
             name_scope=scope, zero_pad=True)  # (|A|+1, d) lookup table for all attr emb 
         uattr_emb = tf.nn.embedding_lookup(embedding_mat, input_features)  # (b, k, d)
         element_wise_prod_list = []
 
-        attn_W = tf.get_variable(name="attention_W", dtype=tf.float32,
+        attn_W = tf.compat.v1.get_variable(name="attention_W", dtype=tf.float32,
             shape=[emb_dim, hid_rep_dim], initializer=initializer, 
             regularizer=regularizer)
-        attn_p = tf.get_variable(name="attention_p", dtype=tf.float32,
+        attn_p = tf.compat.v1.get_variable(name="attention_p", dtype=tf.float32,
             shape=[hid_rep_dim], initializer=initializer, regularizer=regularizer)
-        attn_b = tf.get_variable(name="attention_b", dtype=tf.float32,
+        attn_b = tf.compat.v1.get_variable(name="attention_b", dtype=tf.float32,
             shape=[hid_rep_dim], initializer=initializer, regularizer=regularizer)
 
         for i in range(0, attr_size):
@@ -107,7 +107,7 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, 
                 element_wise_prod_list.append(
                     tf.multiply(uattr_emb[:, i, :], uattr_emb[:, j, :]))
 
-        element_wise_prod = tf.stack(element_wise_prod_list, axis=1)
+        element_wise_prod = tf.stack(element_wise_prod_list, axis=1)  # (b,(k*(k-1),d)
         # interactions = tf.reduce_sum(element_wise_prod, axis=2)  # b * (k*(k-1))
         num_interactions = attr_size * (attr_size - 1) // 2  # aka: k *(k-1)
 
@@ -124,7 +124,7 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, 
 
         attn_out = tf.nn.softmax(attn_relu)  # b*(k*(k-1)*h
 
-        afm = tf.reduce_sum(tf.multiply(attn_out, element_wise_prod), axis=1, name="afm")
+        afm = tf.reduce_sum(tf.multiply(attn_out, attn_mul), axis=1, name="afm")
         # afm: b*(k*(k-1))*h => b*h
         if use_dropout:
             print(use_dropout, dropout_rate)
@@ -133,7 +133,6 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, 
         attn_out = tf.squeeze(attn_out, name="attention_output")
 
         # TODO: first order feature not considered yet!
-
         return afm, attn_out
 
 
@@ -163,8 +162,8 @@ def centroid(input_features, n_centroid, emb_size, tao, name_scope, var_name,
     with tf.name_scope(name_scope):
 
         # create centroids/interests variables
-        with tf.variable_scope(name_scope, reuse=tf.AUTO_REUSE):
-            centroids = tf.get_variable(shape=[n_centroid, emb_size], dtype=tf.float32,
+        with tf.compat.v1.variable_scope(name_scope, reuse=tf.compat.v1.AUTO_REUSE):
+            centroids = tf.compat.v1.get_variable(shape=[n_centroid, emb_size], dtype=tf.float32,
                 name=var_name, regularizer=regularizer)  # (c,d)
 
         # compute the logits

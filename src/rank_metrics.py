@@ -47,9 +47,9 @@ def dcg_at_k(r, k, method=0):
     r = np.asfarray(r)[:k]
     if r.size:
         if method == 0:
-            return r[0] + np.sum(r[1:] / np.log2(np.arange(2, r.size + 1)))
+            return r[0] + np.sum(r[1:] / np.log2(np.arange(2, r.shape[1] + 1)))
         elif method == 1:
-            return np.sum(r / np.log2(np.arange(2, r.size + 2)))
+            return np.sum(r / np.log2(np.arange(2, r.shape[1] + 2)))
         else:
             raise ValueError('method must be 0 or 1.')
     return 0.
@@ -125,8 +125,14 @@ def apk(actual, predicted, k=10):
             num_hits += 1.0
             score += num_hits / (i+1.0)
 
-    if not actual:
-        return 0.0
+
+    try:
+        if not actual:
+            return 0.0
+    except:
+        print(actual)
+        print(type(actual))
+        raise ValueError()
 
     return score / min(len(actual), k)
 
@@ -204,8 +210,8 @@ def metrics_poi(gt, pred_scores, k_list):
     """
     eval_dict = dict()
     pred_scores[:, 0] = 1e9
-    pred_ranking = np.argsort(pred_scores, axis=1)
-    ndcg_ranking = np.isin(pred_scores, gt).astype(np.int32)
+    pred_ranking = np.argsort(pred_scores, axis=1).tolist()
+    ndcg_ranking = np.isin(pred_scores, gt).astype(np.int32).tolist()
 
     for k in k_list:
         # mean average precision, mask out the empty id slot
@@ -213,7 +219,7 @@ def metrics_poi(gt, pred_scores, k_list):
             "mapk": mapk(actual=gt, predicted=pred_ranking, k=k),
             "prec_ak": precision_at_k(actual=gt, predicted=pred_ranking, k=k),
             "recall_ak": recall_at_k(actual=gt, predicted=pred_ranking, k=k),
-            "ndcgk": ndcg_at_k(r=pred_ranking, k=k)
+            "ndcgk": ndcg_at_k(r=ndcg_ranking, k=k, method=1)
             }
     return eval_dict
 
