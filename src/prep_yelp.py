@@ -261,7 +261,6 @@ def city_clustering(city, user_min_count, business_min_count,
     print("\tCity {} parsed!".format(city))
 
 
-
 def generate_data(city, ratio):
     """Create training set and test set
         - the first (ratio[0] / sum(ratio)) of users' reviews/visits ordered by
@@ -295,10 +294,20 @@ def generate_data(city, ratio):
     split_ratio = ratio[0] / sum(ratio)
     print("\t[--gen_data] ratio: {}:{}; (Trn:Tst): {}".format(*ratio, split_ratio))
 
+    """Notes
+        Following items are create for timestamps
+        - train_pos_list_timestamp
+        - train_pos_sub_df_timestamp
+        - test_pos_samples_timestamp 
+        - test_instance_timestamp
+        
+        Some baseline models require timestamp information"""
+
     train_pos_list = []
+    train_pos_list_timestamp = []
     train_neg = {}
     test_instances = {}
-
+    test_instances_timestamp = {}
 
     # user and user-specfic dataframe
     for user, user_df in tqdm(ub_sg):
@@ -311,16 +320,25 @@ def generate_data(city, ratio):
         # split train and test
         split_count = int(len(user_df) * split_ratio)
         train_pos_sub_df = user_df.iloc[: split_count]
-        test_pos_samples = user_df.iloc[split_count: ]['business'].values
+        train_pos_sub_df_timestamp = user_df.iloc[:split_count]
+        test_pos_samples = user_df.iloc[split_count:]['business'].values
+        test_pos_samples_timestamp = user_df.iloc[split_count:]['timestamp'].values
 
         # create train positive sub-dataframe
         train_pos_sub_df = train_pos_sub_df[['user', 'business']]
+        train_pos_sub_df_timestamp = train_pos_sub_df_timestamp[
+            ['user', 'business', 'timestamp']]
         train_pos_list.append(train_pos_sub_df)
+        train_pos_list_timestamp.append(train_pos_sub_df_timestamp)
 
         # create test positive instances dictionary
         test_instances[user] = test_pos_samples
+        test_instances_timestamp[user] = list(
+            zip(test_pos_samples, test_pos_samples_timestamp))
 
     train_pos = pd.concat(train_pos_list, axis=0, ignore_index=True, sort=False)
+    train_pos_timestamp = pd.concat(
+        train_pos_list_timestamp, axis=0, ignore_index=True, sort=False)
 
     # save files
     city_traintest_dir = TRAIN_TEST_DIR + CITY_NAME_ABBR[city] + "/"
@@ -329,9 +347,17 @@ def generate_data(city, ratio):
 
     # shuffle train positive samples
     train_pos = train_pos.sample(frac=1)
+    train_pos_timestamp = train_pos_timestamp.sample(frac=1)
+
+    # save things
     train_pos.to_csv(city_traintest_dir + "train_pos.csv", index=False)
+    train_pos_timestamp.to_csv(city_traintest_dir + "train_pos_timestamp.csv",
+                               index=False)
+
     dump_pkl(city_traintest_dir + "train_neg.pkl", train_neg)
     dump_pkl(city_traintest_dir + "test_instances.pkl", test_instances)
+    dump_pkl(city_traintest_dir + "test_instances_timestamp.pkl",
+             test_instances_timestamp)
 
     print("\t[--gen_data] {}: Finished! Data generated at {}"
             .format(city, city_traintest_dir))
