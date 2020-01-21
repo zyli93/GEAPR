@@ -65,6 +65,8 @@ class IRSModel:
         self.optimizer = tf.compat.v1.train.AdamOptimizer(
             learning_rate=self.F.learning_rate)
 
+        self.optim_dict, self.train_op = None, None
+
         # build graph
         self.build_graph()
 
@@ -84,25 +86,26 @@ class IRSModel:
         #      Auto Encoders
         # ===========================
         usc_rep, ae_recons_loss = autoencoder(input_features=self.batch_usc,
-            layers=self.F.ae_layers, name_scope="user_struc_context_ae",
+            layers=self.F.ae_layers, var_scope="ae",
             regularizer=reglr, initializer=inilz)
 
         # ===========================
         #   Graph Attention Network
         # ===========================
         user_emb_mat = get_embeddings(vocab_size=self.F.num_total_user+1,
-            num_units=self.F.embedding_dim, name_scope="gat", zero_pad=True)
+            num_units=self.F.embedding_dim, var_scope="gat", zero_pad=True)
 
         uf_rep, self.uf_attns = gatnet(
-            name_scope="gat", embedding_mat=user_emb_mat, is_training=self.is_train,
+            var_scope="gat", embedding_mat=user_emb_mat, is_training=self.is_train,
             adj_mat=self.batch_uf, input_indices=self.batch_user, hid_rep_dim=self.F.hid_rep_dim,
-            n_heads=self.F.gat_nheads, ft_drop=self.F.gat_ft_dropout, attn_drop=self.F.gat_coef_dropout)
+            n_heads=self.F.gat_nheads,
+            ft_drop=self.F.gat_ft_dropout, attn_drop=self.F.gat_coef_dropout)
 
         # ===========================
         #      Attention FM
         # ===========================
         uattr_rep, self.uattr_attns = attentional_fm(
-            name_scope="afm", input_features=self.batch_uattr, is_training=self.is_train,
+            var_scope="afm", input_features=self.batch_uattr, is_training=self.is_train,
             emb_dim=self.F.embedding_dim, feat_size=self.F.afm_num_total_user_attr+1,
             initializer=inilz, regularizer=reglr,
             use_dropout=self.F.afm_use_dropout, dropout_rate=self.F.afm_dropout_rate,
@@ -112,7 +115,7 @@ class IRSModel:
         #      Item embedding
         # ===========================
         item_emb_mat = get_embeddings(vocab_size=self.F.num_total_item+1,
-            num_units=self.F.hid_rep_dim, name_scope="item_embedding_matrix", 
+            num_units=self.F.hid_rep_dim, var_scope="item_embedding_matrix",
             zero_pad=True)
         pos_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_pos)  # (b,h)
         neg_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_neg)  # (b*nsr,h)
@@ -120,14 +123,15 @@ class IRSModel:
         # ==========================
         #      User embedding
         # ==========================
-        # TODOL normalization?
-        user_emb = tf.stack(values=[uf_rep, usc_rep, uattr_rep], axis=1)  # (b,3,h)
-        user_emb_attn = tf.layers.dense(user_emb, units=1, activation=tf.nn.relu,
-                use_bias=False, kernel_initializer=inilz)  # (b,3,1)
-        user_emb_attn = tf.nn.softmax(user_emb_attn, axis=1)  # (b,3,1)
-        self.user_emb_agg_attn = tf.squeeze(user_emb_attn)  # (b,3), VIZ
-        user_emb = tf.squeeze(
-            tf.matmul(user_emb, user_emb_attn, transpose_a=True))  # (b,h)
+        # TODO: normalization?
+        with tf.compat.v1.variable_scope("attn_agg"):
+            user_emb = tf.stack(values=[uf_rep, usc_rep, uattr_rep], axis=1)  # (b,3,h)
+            user_emb_attn = tf.layers.dense(user_emb, units=1, activation=tf.nn.relu,
+                    use_bias=False, kernel_initializer=inilz)  # (b,3,1)
+            user_emb_attn = tf.nn.softmax(user_emb_attn, axis=1)  # (b,3,1)
+            self.user_emb_agg_attn = tf.squeeze(user_emb_attn)  # (b,3), VIZ
+            user_emb = tf.squeeze(
+                tf.matmul(user_emb, user_emb_attn, transpose_a=True))  # (b,h)
 
         # ============================
         #   Centroids/Interests/Cost
@@ -135,7 +139,7 @@ class IRSModel:
         # Get users' centroid representation and logits
         user_ct_rep, self.user_ct_logits = centroid(input_features=user_emb,
             n_centroid=self.F.num_user_ctrd, emb_size=self.F.hid_rep_dim,
-            tao=self.F.tao, name_scope="centroids", var_name="user_centroids",
+            tao=self.F.tao, var_scope="centroids", var_name="user_centroids",
             activation=self.F.ctrd_activation, regularizer=reglr)  # (b,d)
 
         # Get items' centroid representation and logits
@@ -144,7 +148,7 @@ class IRSModel:
         for x_item_emb in [pos_item_emb, neg_item_emb]:
             tmp_ct_rep, tmp_ct_logits = centroid(input_features=x_item_emb,
                 n_centroid=self.F.num_item_ctrd, emb_size=self.F.hid_rep_dim,
-                tao=self.F.tao, name_scope="centroids", var_name="item_centroids",
+                tao=self.F.tao, var_scope="centroids", var_name="item_centroids",
                 activation=self.F.ctrd_activation, regularizer=reglr)
             item_ct_reps.append(tmp_ct_rep)
             item_ct_logits.append(tmp_ct_logits)
@@ -202,11 +206,24 @@ class IRSModel:
         loss += self.F.ctrd_corr_weight * (user_ct_corr_cost + item_ct_corr_cost)
         loss += tf.compat.v1.losses.get_regularization_loss()
 
-        # TODO: correct way to update loss
+        # ======================
+        #   Optimization Ops
+        # ======================
 
         self.loss = loss
         self.train_op = self.optimizer.minimize(
             self.loss, global_step=self.global_step)
+
+        """Generate self.optim_dict.
+        key: four diff scope names correspond to four diff component
+        value: the corresponding optimization operator/step"""
+
+        all_var_scopes = ["ae", "gat", "afm", "attn_agg", "centroids"]
+        self.optim_dict = dict(
+            [(x, self.optimizer.minimize(self.loss, global_step=self.global_step,
+                var_list=tf.compat.v1.get_collection(
+                    tf.GraphKeys.TRAINABLE_VARIABLES, scope=x)))
+             for x in all_var_scopes])
 
         # ======================
         #   Generate score
@@ -214,14 +231,10 @@ class IRSModel:
         """Generate score for testing time
         input: user_ct_rep, item_emb_mat"""
 
-        # TODO: really reusing? why "centroids_4"
         all_item_ct_rep, _ = centroid(
             input_features=item_emb_mat, n_centroid=self.F.num_item_ctrd,
-            emb_size=self.F.hid_rep_dim, tao=self.F.tao, name_scope="centroids", 
+            emb_size=self.F.hid_rep_dim, tao=self.F.tao, var_scope="centroids",
             var_name="item_centroids", activation=self.F.ctrd_activation,
             regularizer=reglr)  # (n,h)
 
-        print(user_ct_rep)
-        print(all_item_ct_rep)
         self.test_scores = tf.matmul(user_ct_rep, all_item_ct_rep, transpose_b=True)  # (b,n)
-        print(self.test_scores)

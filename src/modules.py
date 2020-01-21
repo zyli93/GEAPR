@@ -10,21 +10,22 @@ import tensorflow as tf
 from utils import get_activation_func
 
 
-def autoencoder(input_features, layers, name_scope, regularizer=None, initializer=None):
+def autoencoder(var_scope, input_features, layers, regularizer=None, initializer=None):
     """Auto encoder for structural context of users 
 
     Args:
-        input_features - raw input structural context 
+        var_scope - variable scope of the ops within the function
+        input_features - raw input structural context
         layers - the layers of enc and dec. [hid1_dim, ..., hidk_dim, out_dim]
-        scope - name_scope of the ops within the function
-        regularizer - the regularizer
+        regularizer -
+        initializer -
 
     Returns:
         output_feature - the output features
         recon_loss - reconstruction loss
     """
 
-    with tf.name_scope(name_scope):
+    with tf.compat.v1.variable_scope(var_scope):
         features = input_features
         restore_dim = int(features.shape[1])
 
@@ -54,12 +55,12 @@ def autoencoder(input_features, layers, name_scope, regularizer=None, initialize
 
         # reconstruction loss
         recon_loss = tf.nn.l2_loss(input_features - restore,
-            name="recons_loss_{}".format(name_scope))
+            name="recons_loss_{}".format(var_scope))
 
-    return hidden_feature, recon_loss
+        return hidden_feature, recon_loss
 
 
-def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, attr_size,
+def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, attr_size,
                    is_training, use_dropout, dropout_rate,
                    initializer=None, regularizer=None):
     """attentional factorization machine for attribute feature extractions
@@ -72,13 +73,13 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, 
         |A| - total number of attributes
 
     Args:
-        name_scope - [str]
+        var_scope - [str]
         input_features - [int] (b, k) input discrete features
         emb_dim - [int] dimension of each embedding, d
         hid_rep_dim - [int] hidden representation dimension 
-        is_training - [tf.placeholder bool] the placeholder indicating whether traing/test
         feat_size - [int] total number of distinct features (fields) for FM, A
         attr_size - [int] total number of fields , abbrev. k
+        is_training - [tf.placeholder bool] the placeholder indicating whether traing/test
         use_dropout - [bool] whether to use dropout in AFM
         dropout_rate - [float] the ratio of dropout (only when `use_dropout`=True)
 
@@ -88,7 +89,7 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, 
 
     """
 
-    with tf.compat.v1.variable_scope(name_scope) as scope:
+    with tf.compat.v1.variable_scope(var_scope) as scope:
         embedding_mat = get_embeddings(vocab_size=feat_size, num_units=emb_dim,
             name_scope=scope, zero_pad=True)  # (|A|+1, d) lookup table for all attr emb 
         uattr_emb = tf.nn.embedding_lookup(embedding_mat, input_features)  # (b, k, d)
@@ -136,54 +137,7 @@ def attentional_fm(name_scope, input_features, emb_dim, feat_size, hid_rep_dim, 
         return afm, attn_out
 
 
-def centroid(input_features, n_centroid, emb_size, tao, name_scope, var_name,
-             regularizer=None, activation=None):
-    """Model the centroids for users/items
-
-    Centroids mean interests for users and categories for items
-
-    Notations:
-        d - embedding_size
-        b - batch_size
-        c - centroid_size
-
-    Args:
-        input_features - the hidden representation of mini-batch matrix, (b,d)
-        n_centroid - number of centroids/interests, (c,d)
-        emb_size - the embedding size
-        tao - [float] the temperature hyper-parameter
-        name_scope - the name_scope of the current component
-        var_name - the centroid tensor variable name
-        activation - [string] of activation functions
-
-    Returns:
-        output - (b, d)
-    """
-    with tf.name_scope(name_scope):
-
-        # create centroids/interests variables
-        with tf.compat.v1.variable_scope(name_scope, reuse=tf.compat.v1.AUTO_REUSE):
-            centroids = tf.compat.v1.get_variable(shape=[n_centroid, emb_size], dtype=tf.float32,
-                name=var_name, regularizer=regularizer)  # (c,d)
-
-        # compute the logits
-        ft_mul = tf.matmul(input_features, centroids, transpose_b=True)  # (b,c)
-
-        # if `activation` given, pass through activation func
-        if activation:
-            activation_func = get_activation_func(activation)
-            ft_mul = activation_func(ft_mul)
-
-        # apply temperature and then softmax
-        logits = tf.nn.softmax(ft_mul / tao, axis=-1)  # (b,c)
-
-        # attentional pooling
-        output = tf.matmul(logits, centroids)  # (b, d)
-
-        return output, logits
-
-
-def gatnet(name_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,
+def gatnet(var_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,
            is_training, n_heads, ft_drop=0.0, attn_drop=0.0):
     """Graph Attention Network component for users/items
 
@@ -197,7 +151,7 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,
         d - embedding size of 
 
     Args:
-        name_scope - name scope
+        var_scope - variable scope
         embedding_mat - [float32] (n, d) the whole embedding matrix of nodes
         adj_mat - [int] (b, n) adjacency matrix for the batch
         input_indices - [int] (b, 1) the inputs of batch user indices
@@ -216,7 +170,7 @@ def gatnet(name_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,
             - obtained bias_mat
     """
 
-    with tf.name_scope(name_scope):
+    with tf.compat.v1.variable_scope(var_scope):
 
         bias_mat = -1e9 * (1 - tf.cast(adj_mat, dtype=tf.float32))  # (b, d)
         hidden_features = []
@@ -269,7 +223,7 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
         coefs - (b, n) the attention distribution
     """
 
-    with tf.name_scope("gat_attn_head_{}".format(head_id)):
+    with tf.compat.v1.variable_scope("gat_attn_head_{}".format(head_id)):
         if ft_drop != 0.0:
             emb_lookup = tf.compat.v1.layers.dropout(
                 emb_lookup, ft_drop, training=is_training)
@@ -303,45 +257,90 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
         return ret, coefs
 
 
-def get_embeddings(vocab_size, num_units, name_scope, zero_pad=False):
+def get_embeddings(var_scope, vocab_size, num_units, zero_pad=False):
     """Construct a embedding matrix
 
     Args:
+        var_scope - the variable scope of the matrix
         vocab_size - vocabulary size (the V.)
         num_units - the embedding size (the d.)
-        name_scope - the name scope of the matrix
         zero_pad - [bool] whether to pad the matrix by column of zeros
 
     Returns:
         embedding matrix - [float] (V+1, d)
     """
 
-    with tf.compat.v1.variable_scope(name_scope, reuse=tf.compat.v1.AUTO_REUSE):
+    with tf.compat.v1.variable_scope(var_scope, reuse=tf.compat.v1.AUTO_REUSE):
         embeddings = tf.compat.v1.get_variable('embedding_matrix',
             dtype=tf.float32, shape=[vocab_size, num_units],
             initializer=tf.contrib.layers.xavier_initializer())
         if zero_pad:
             embeddings = tf.concat((tf.zeros(shape=[1, num_units]),
                 embeddings[1:, :]), 0)
+        return embeddings
 
-    return embeddings
+
+def centroid(var_scope, var_name,  input_features, n_centroid, emb_size, tao,
+             regularizer=None, activation=None):
+    """Model the centroids for users/items
+
+    Centroids mean interests for users and categories for items
+
+    Notations:
+        d - embedding_size
+        b - batch_size
+        c - centroid_size
+
+    Args:
+        var_scope - the variable scope of the current component
+        var_name - the centroid tensor variable name
+        input_features - the hidden representation of mini-batch matrix, (b,d)
+        n_centroid - number of centroids/interests, (c,d)
+        emb_size - the embedding size
+        tao - [float] the temperature hyper-parameter
+        activation - [string] of activation functions
+
+    Returns:
+        output - (b, d)
+    """
+    with tf.compat.v1.variable_scope(var_scope, reuse=tf.compat.v1.AUTO_REUSE):
+
+        # create centroids/interests variables
+        centroids = tf.compat.v1.get_variable(shape=[n_centroid, emb_size], dtype=tf.float32,
+                                              name=var_name, regularizer=regularizer)  # (c,d)
+
+        # compute the logits
+        ft_mul = tf.matmul(input_features, centroids, transpose_b=True)  # (b,c)
+
+        # if `activation` given, pass through activation func
+        if activation:
+            activation_func = get_activation_func(activation)
+            ft_mul = activation_func(ft_mul)
+
+        # apply temperature and then softmax
+        logits = tf.nn.softmax(ft_mul / tao, axis=-1)  # (b,c)
+
+        # attentional pooling
+        output = tf.matmul(logits, centroids)  # (b, d)
+
+        return output, logits
 
 
-def centroid_corr(centroid_mat, name_scope):
+def centroid_corr(centroid_mat, var_scope):
     """Compute centroid correlations to minimize
 
     Args:
+        var_scope - name scope
         centroid matrix - the entire matrix of centroids
-        name_scope - name scope
 
     Returns:
         the correlations of centroid
     """
-    with tf.name_scope(name_scope):
+    with tf.compat.v1.variable_scope(var_scope):
         numerator = tf.square(tf.matmul(centroid_mat, centroid_mat, transpose_b=True))  # (c,c)
         row_sqr_sum = tf.reduce_sum(tf.square(centroid_mat), axis=1, keepdims=True)  # (c,1)
         rss_sqrt = tf.sqrt(row_sqr_sum)  # (c, 1) element-wise sqrt
         denominator = tf.matmul(rss_sqrt, rss_sqrt, transpose_b=True)  # (c,c)
         corr_cost = tf.truediv(numerator, denominator)
 
-    return tf.reduce_sum(corr_cost)
+        return tf.reduce_sum(corr_cost)

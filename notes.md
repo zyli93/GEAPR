@@ -26,3 +26,5 @@
 1. ValueError: setting an array element with a sequence.
 input shape doesn't match with placeholder shape
 it 
+2. Next time, `tf.compat.v1.variable_scope` should be in the very outside 
+of the code.
