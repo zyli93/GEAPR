@@ -10,6 +10,16 @@ Many thanks again!
 
 """
 import numpy as np
+from sklearn.metrics import ndcg_score
+
+
+def gen_bin_indicator(gt, n_item):
+    indicators = []
+    for i in range(len(gt)):
+        tmp = np.zeros(n_item)
+        np.put(tmp, gt[i], 1)
+        indicators.append(tmp)
+    return np.stack(indicators, axis=0)
 
 
 def dcg_at_k(r, k, method=0):
@@ -55,7 +65,7 @@ def dcg_at_k(r, k, method=0):
     return 0.
 
 
-def ndcg_at_k(r, k, method=0):
+def ndcg_at_k_v1(r, k, method=0):
     """Score is normalized discounted cumulative gain (ndcg)
 
     Relevance is positive real values.  Can use binary
@@ -90,6 +100,18 @@ def ndcg_at_k(r, k, method=0):
     if not dcg_max:
         return 0.
     return dcg_at_k(r, k, method) / dcg_max
+
+
+def ndcg_at_k_v2(actual, predicted, k):
+    """Re-implementation of ndcg score using scikit-learn 0.22.1
+
+    This takes too long!
+    """
+    print(actual.shape)
+    print(predicted.shape)
+    ndcg_score_ret = ndcg_score(
+        y_true=actual, y_score=predicted, k=k)
+    return ndcg_score_ret
 
 
 def apk(actual, predicted, k=10):
@@ -173,7 +195,7 @@ def precision_at_k(actual, predicted, k):
         prec@k
     """
     assert len(actual) == len(predicted), "prec@k inconsistent length"
-    assert k < len(predicted), "TOO Big K"
+    assert k < len(predicted[0]), "TOO Big K"
     prec_at_k_list = [len(set(actual[i]) & set(predicted[i][:k])) / k
                       for i in range(len(actual))]
     return sum(prec_at_k_list) / len(prec_at_k_list)
@@ -210,16 +232,19 @@ def metrics_poi(gt, pred_scores, k_list):
     """
     eval_dict = dict()
     pred_scores[:, 0] = 1e9
+    print("\t[Evaluation] Running argsort ...")
     pred_ranking = np.argsort(pred_scores, axis=1).tolist()
-    ndcg_ranking = np.isin(pred_scores, gt).astype(np.int32).tolist()
+    ndcg_indicator = gen_bin_indicator(gt=gt, n_item=pred_scores.shape[1])
+    # ndcg_ranking = np.isin(pred_scores, gt).astype(np.int32).tolist()
 
     for k in k_list:
-        # mean average precision, mask out the empty id slot
+        print("\t[Evaluation] {}".format(k))
         eval_dict[k] = {
-            "mapk": mapk(actual=gt, predicted=pred_ranking, k=k),
-            "prec_ak": precision_at_k(actual=gt, predicted=pred_ranking, k=k),
-            "recall_ak": recall_at_k(actual=gt, predicted=pred_ranking, k=k),
-            "ndcgk": ndcg_at_k(r=ndcg_ranking, k=k, method=1)
+            "prec_ak": precision_at_k(actual=gt, predicted=pred_ranking, k=k)
+            , "recall_ak": recall_at_k(actual=gt, predicted=pred_ranking, k=k)
+            , "mapk": mapk(actual=gt, predicted=pred_ranking, k=k)
+            # , "ndcgk": ndcg_at_k_v2(actual=ndcg_indicator, predicted=pred_scores, k=k)
+            # , "ndcgk": ndcg_at_k_v1(r=ndcg_ranking, k=k, method=1)
             }
     return eval_dict
 

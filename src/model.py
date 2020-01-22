@@ -49,7 +49,7 @@ class IRSModel:
         print(self.batch_uattr)
 
         # fetch-ables
-        self.loss = None  # overall loss
+        self.loss, self.losses = None, None # overall loss
         self.user_centroids, self.item_centroids = None, None  # ctrds
         self.train_op = None
         self.test_scores = None
@@ -156,7 +156,7 @@ class IRSModel:
         self.pos_item_ct_logits = item_ct_logits[0],
         self.neg_item_ct_logits = item_ct_logits[1]
 
-        with tf.compat.v1.variable_scope("centroids", reuse=tf.AUTO_REUSE):
+        with tf.compat.v1.variable_scope("centroids", reuse=tf.compat.v1.AUTO_REUSE):
             self.user_centroids = tf.compat.v1.get_variable(name="user_centroids")
             self.item_centroids = tf.compat.v1.get_variable(name="item_centroids")
 
@@ -177,8 +177,18 @@ class IRSModel:
                 multiples=[self.F.negative_sample_ratio, 1])  # (b*nsr,h)
             neg_interactions = tf.reduce_sum(
                 tf.multiply(user_ct_rep_tiled, item_ct_reps[1]), axis=-1)  # (b*nsr)
-            final_loss = tf.reduce_sum(tf.subtract(neg_interactions, pos_interactions),
-                name="ranking_cls_loss")
+
+            negpos_diff = tf.subtract(neg_interactions, pos_interactions)
+
+            # final loss V1: using hinge loss
+            # final_loss = tf.reduce_sum(tf.reduce_max(negpos_diff, 0), name="ranking_cls_loss")
+
+            # final loss V2: using RankNet loss
+            # o_ij = ( - negpos_diff)
+            # - (- negpos_diff) + log(1 + exp(-negpos_diff))
+            #   => log(1 + exp(negpos_diff))
+            final_loss = tf.reduce_sum(
+                tf.math.log(1 + tf.math.exp(negpos_diff)))
 
         elif self.F.loss_type == "binary":
             # inner product + sigmoid
@@ -202,9 +212,17 @@ class IRSModel:
         # loss = final_loss + reconstruction in ae
         #        ae_reconstruction + centroid_correlation + regularization
         loss = final_loss
-        loss += self.F.ae_recon_loss_weight * ae_recons_loss
-        loss += self.F.ctrd_corr_weight * (user_ct_corr_cost + item_ct_corr_cost)
-        loss += tf.compat.v1.losses.get_regularization_loss()
+        # loss += self.F.ae_recon_loss_weight * ae_recons_loss
+        # loss += self.F.ctrd_corr_weight * (user_ct_corr_cost + item_ct_corr_cost)
+        # loss += tf.compat.v1.losses.get_regularization_loss()
+
+        pw_loss = final_loss
+        ae_loss = self.F.ae_recon_loss_weight * ae_recons_loss
+        ct_loss = self.F.ctrd_corr_weight * (user_ct_corr_cost + item_ct_corr_cost)
+        rg_loss = tf.compat.v1.losses.get_regularization_loss()
+
+        self.losses = [pw_loss, ae_loss, ct_loss, rg_loss]
+        # TODO: set separate Optimizers for diff components
 
         # ======================
         #   Optimization Ops
@@ -222,7 +240,7 @@ class IRSModel:
         self.optim_dict = dict(
             [(x, self.optimizer.minimize(self.loss, global_step=self.global_step,
                 var_list=tf.compat.v1.get_collection(
-                    tf.GraphKeys.TRAINABLE_VARIABLES, scope=x)))
+                    tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=x)))
              for x in all_var_scopes])
 
         # ======================

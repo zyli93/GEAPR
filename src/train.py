@@ -3,10 +3,11 @@
     @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 """
 
+from tqdm import tqdm
 import numpy as np
 import tensorflow as tf
 from utils import build_msg
-from rank_metrics import metrics_poi
+from rank_metrics import metrics_poi, gen_bin_indicator
 
 
 def train(flags, model, dataloader):
@@ -32,6 +33,10 @@ def train(flags, model, dataloader):
     config.gpu_options.allow_growth = True
     config.gpu_options.per_process_gpu_memory_fraction = 0.8
 
+    # tf.reset_default_graph()
+    tf.set_random_seed(F.random_seed)
+    np.random.seed(F.random_seed)
+
     # === Run training ===
     print("=======================")
     print("\t\tExperiment ID:{}".format(F.trial_id))
@@ -45,50 +50,61 @@ def train(flags, model, dataloader):
         sess.run(tf.compat.v1.local_variables_initializer())
         sess.run(tf.compat.v1.global_variables_initializer())
 
-        # batch data generator
-        trn_iter = dataloader.get_train_batch_iterator()
-
         # run epochs
         for epoch in range(F.epoch):
+            # batch data generator
+            trn_iter = dataloader.get_train_batch_iterator()
+
             # abbrevs: batch index, batch user, batch positive and negative items
             # bI: scalar; bU: (batch_size,1)
             # bP: (batch_size, 1); bN: (batch_size * nsr, 1)
             for bI, bU, bP, bN in trn_iter:
+                break  # used to debug for evaluation
                 bUf, bUsc = dataloader.get_user_graphs(bU)
                 bUsc, bUf = bUsc.toarray(), bUf.toarray()
 
                 bUattr = dataloader.get_user_attributes(bU)
 
                 # run training operation
-                _, gs, loss = sess.run(
-                    fetches=[model.train_op, model.global_step, model.loss],
+                _, gs, loss, losses = sess.run(
+                    fetches=[model.train_op, model.global_step, model.loss, model.losses],
                     feed_dict={
                         model.is_train: True, model.batch_user: bU,
                         model.batch_pos: bP, model.batch_neg: bN,
                         model.batch_uf: bUf, model.batch_usc: bUsc,
                         model.batch_uattr: bUattr})
 
+                # print(losses)
+
                 # print results and write to file
-                if gs and not(gs % F.log_per_iter):
+                if bI and not(bI % F.log_per_iter):
                     msg_loss = build_msg(stage="Trn", ep=epoch, gs=gs, bi=bI, loss=loss)
-                    print(msg_loss, file=perf_writer)  # write to log
-                    if gs % (10 * F.log_per_iter) == 0:
-                        print(msg_loss)
+                    print(msg_loss)
+                    # print(msg_loss, file=perf_writer)  # write to log
+                    # if bI % (10 * F.log_per_iter) == 0:
+                    #     print(msg_loss)
+                    # TODO: uncomment later, turn on file writer
 
                 # save model, only when save model flag is on
-                if F.save_model and gs and not(gs % F.save_per_iter):
+                if F.save_model and bI and not(bI % F.save_per_iter):
                     print("\tSaving Checkpoint at global step [{}]!"
                           .format(sess.run(model.global_step)))
                     saver.save(sess, save_path=ckpt_dir, global_step=gs)
 
             # run validation set
-            eval_dict = evaluate(False, model, dataloader, F, sess)
-            msg_val_score = build_msg("Val", epoch=epoch, eval_dict=eval_dict)
+            # eval_dict = evaluate(False, model, dataloader, F, sess)
+            # msg_val_score = build_msg("Val", epoch=epoch, eval_dict=eval_dict)
 
-            print(msg_val_score)
-            print(msg_val_score, file=perf_writer)
+            # run test set
+            eval_dict = evaluate(True, model, dataloader, F, sess)
+            msg_test_score = build_msg("Tst", epoch=epoch, eval_dict=eval_dict)
 
-            # TODO: for debug purpose, have NOT implemented TEST. Pls Implement it!
+            # print(msg_val_score)
+            # print(msg_val_score, file=perf_writer)
+
+            # TODO: uncomment later, turn on file writer
+            print(msg_test_score)
+            # print(msg_test_score, file=perf_writer)
 
     print("Training finished!")
 
@@ -103,14 +119,23 @@ def evaluate(is_test, model, dataloader, F, sess):
         epoch - the number of epochs of this evaluation
         dataloader - the data loader
         F - the flags
+        mat_gt - matrix version of the ground truth
 
     Return:
         msg - a message made report the message
+
+    Notes:
+        1 - Jan21: changed load batch from `for` to tqdm(`for`)
     """
     bs = F.batch_size
     tv_U, tv_gt = dataloader.get_test_valid_dataset(is_test=is_test)
+
     scores_list = []
-    for i in range(len(tv_U) // bs):
+
+    print("\Running Evaluation")
+    for i in tqdm(range(len(tv_U) // bs + 1)):
+        if i * bs >= len(tv_U):
+            break
         # tv_: test or validation
         tv_bU = tv_U[i*bs: min((i+1)*bs, len(tv_U))]
         tv_buf, tv_busc = dataloader.get_user_graphs(tv_bU)

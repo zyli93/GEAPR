@@ -6,6 +6,7 @@
 import os
 from datetime import datetime
 import tensorflow as tf
+import numpy as np
 
 try:
     import _pickle as pickle
@@ -61,9 +62,9 @@ def build_msg(stage, **kwargs):
     """build msg"""
     def build_single_msg(pref, **kw_dict):
         for key, value in kw_dict.items():
-            if isinstance(value, int):
+            if isinstance(value, int) or isinstance(value, np.int32):
                 pref += " {}:{:d}".format(key, value)
-            elif isinstance(value, float):
+            elif isinstance(value, float) or isinstance(value, np.float32):
                 pref += " {}:{:.6f}".format(key, value)
             else:
                 TypeError("Error in value type {}".format(type(value)))

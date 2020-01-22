@@ -39,6 +39,7 @@ def autoencoder(var_scope, input_features, layers, regularizer=None, initializer
         # encoded hidden representation
         hidden_feature = features  # (b, rep_dim)
 
+        """
         # decoder
         rev_layers = layers[::-1]  # [out, h_dim_k, ..., h_dim_1]
         for i in range(1, len(rev_layers)):
@@ -58,6 +59,9 @@ def autoencoder(var_scope, input_features, layers, regularizer=None, initializer
             name="recons_loss_{}".format(var_scope))
 
         return hidden_feature, recon_loss
+        """
+
+        return hidden_feature, tf.constant(0., dtype=tf.float32)
 
 
 def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, attr_size,
@@ -91,7 +95,7 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
 
     with tf.compat.v1.variable_scope(var_scope) as scope:
         embedding_mat = get_embeddings(vocab_size=feat_size, num_units=emb_dim,
-            name_scope=scope, zero_pad=True)  # (|A|+1, d) lookup table for all attr emb 
+            var_scope=scope, zero_pad=True)  # (|A|+1, d) lookup table for all attr emb
         uattr_emb = tf.nn.embedding_lookup(embedding_mat, input_features)  # (b, k, d)
         element_wise_prod_list = []
 
