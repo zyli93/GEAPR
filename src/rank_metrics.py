@@ -233,7 +233,7 @@ def metrics_poi(gt, pred_scores, k_list):
     eval_dict = dict()
     pred_scores[:, 0] = 1e9
     print("\t[Evaluation] Running argsort ...")
-    pred_ranking = np.argsort(pred_scores, axis=1).tolist()
+    pred_ranking = np.flip(np.argsort(pred_scores, axis=1), axis=1).tolist()
     ndcg_indicator = gen_bin_indicator(gt=gt, n_item=pred_scores.shape[1])
     # ndcg_ranking = np.isin(pred_scores, gt).astype(np.int32).tolist()
 

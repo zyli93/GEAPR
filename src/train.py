@@ -59,7 +59,7 @@ def train(flags, model, dataloader):
             # bI: scalar; bU: (batch_size,1)
             # bP: (batch_size, 1); bN: (batch_size * nsr, 1)
             for bI, bU, bP, bN in trn_iter:
-                break  # used to debug for evaluation
+                # break  # used to debug for evaluation
                 bUf, bUsc = dataloader.get_user_graphs(bU)
                 bUsc, bUf = bUsc.toarray(), bUf.toarray()
 
