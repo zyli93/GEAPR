@@ -32,9 +32,9 @@ CUDA_VISIBLE_DEVICES=$1 python3 src/main_zyli.py \
     --batch_size 256 \
     --yelp_city tor \
     --nosave_model \
-    --log_per_iter 20 \
+    --log_per_iter 400 \
     --negative_sample_ratio 5 \
-    --valid_set_size 256  --loss_type ranking \
+    --valid_set_size 256  --loss_type binary \
     --learning_rate 0.0001 \
     --regularization_weight 0.0001 \
     --embedding_dim 64 \
@@ -53,4 +53,4 @@ CUDA_VISIBLE_DEVICES=$1 python3 src/main_zyli.py \
     --num_user_ctrd 16 \
     --num_item_ctrd 16 \
     --ctrd_corr_weight 0.001 \
-    --candidate_k 10,20,40,60,80,100
+    --candidate_k 10,20,40,60,80,100,200,300

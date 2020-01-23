@@ -66,8 +66,9 @@ def train(flags, model, dataloader):
                 bUattr = dataloader.get_user_attributes(bU)
 
                 # run training operation
-                _, gs, loss, losses = sess.run(
-                    fetches=[model.train_op, model.global_step, model.loss, model.losses],
+                _, gs, loss, losses, odict = sess.run(
+                    fetches=[model.train_op, model.global_step, model.loss, model.losses,
+                             model.output_dict],
                     feed_dict={
                         model.is_train: True, model.batch_user: bU,
                         model.batch_pos: bP, model.batch_neg: bN,
@@ -75,6 +76,7 @@ def train(flags, model, dataloader):
                         model.batch_uattr: bUattr})
 
                 # print(losses)
+                # print(losses[0])
 
                 # print results and write to file
                 if bI and not(bI % F.log_per_iter):
@@ -84,6 +86,8 @@ def train(flags, model, dataloader):
                     # if bI % (10 * F.log_per_iter) == 0:
                     #     print(msg_loss)
                     # TODO: uncomment later, turn on file writer
+
+                    # print(odict["negpos_diff"])
 
                 # save model, only when save model flag is on
                 if F.save_model and bI and not(bI % F.save_per_iter):

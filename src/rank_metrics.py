@@ -238,7 +238,7 @@ def metrics_poi(gt, pred_scores, k_list):
     # ndcg_ranking = np.isin(pred_scores, gt).astype(np.int32).tolist()
 
     for k in k_list:
-        print("\t[Evaluation] {}".format(k))
+        # print("\t[Evaluation] {}".format(k))
         eval_dict[k] = {
             "prec_ak": precision_at_k(actual=gt, predicted=pred_ranking, k=k)
             , "recall_ak": recall_at_k(actual=gt, predicted=pred_ranking, k=k)

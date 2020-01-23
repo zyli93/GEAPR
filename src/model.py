@@ -58,6 +58,8 @@ class IRSModel:
         self.user_emb_agg_attn = None
         self.user_ct_logits = None
 
+        self.output_dict = {}
+
         # global step counter
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
 
@@ -125,7 +127,11 @@ class IRSModel:
         # ==========================
         # TODO: normalization?
         with tf.compat.v1.variable_scope("attn_agg"):
-            user_emb = tf.stack(values=[uf_rep, usc_rep, uattr_rep], axis=1)  # (b,3,h)
+            # module_fan_in = [uf_rep, usc_rep, uattr_rep]
+            # module_fan_in = [uf_rep]
+            module_fan_in = [uattr_rep]
+            module_fan_in = [usc_rep]
+            user_emb = tf.stack(values=module_fan_in, axis=1)  # (b,3,h)
             user_emb_attn = tf.layers.dense(user_emb, units=1, activation=tf.nn.relu,
                     use_bias=False, kernel_initializer=inilz)  # (b,3,1)
             user_emb_attn = tf.nn.softmax(user_emb_attn, axis=1)  # (b,3,1)
@@ -174,11 +180,13 @@ class IRSModel:
                 multiples=[self.F.negative_sample_ratio])  # (b*nsr)
 
             user_ct_rep_tiled = tf.tile(user_ct_rep,
-                multiples=[self.F.negative_sample_ratio, 1])  # (b*nsr,h)
+                multiples=[self.F.negative_sample_ratio, 1])  # (b*(nsr+1),h)
             neg_interactions = tf.reduce_sum(
                 tf.multiply(user_ct_rep_tiled, item_ct_reps[1]), axis=-1)  # (b*nsr)
 
             negpos_diff = tf.subtract(neg_interactions, pos_interactions)
+
+            self.output_dict["negpos_diff"] = negpos_diff
 
             # final loss V1: using hinge loss
             # final_loss = tf.reduce_sum(tf.reduce_max(negpos_diff, 0), name="ranking_cls_loss")
@@ -194,17 +202,18 @@ class IRSModel:
             # inner product + sigmoid
             p_size = self.F.batch_size
             n_size = self.F.batch_size * self.F.negative_sample_ratio
-            ground_truth = tf.constant([1]*p_size+[0]*n_size, dtype=tf.int32,
+            ground_truth = tf.constant([1]*p_size+[0]*n_size, dtype=tf.float32,
                 shape=[p_size+n_size])  # (p_size+n_size)
 
             user_ct_rep_tiled = tf.tile(user_ct_rep,
-                multiples=[self.F.negative_sample_ratio, 1])
+                multiples=[self.F.negative_sample_ratio+1, 1])
             # shape: (b*nsr, d)
             item_ct_reps_concat = tf.concat(item_ct_reps, axis=0)
             logits = tf.reduce_sum(
                 tf.multiply(user_ct_rep_tiled, item_ct_reps_concat), axis=-1)
-            final_loss = tf.nn.sigmoid_cross_entropy_with_logits(
-                labels=ground_truth, logits=logits, name="binary_cls_loss")
+            final_loss = tf.reduce_sum(
+                tf.nn.sigmoid_cross_entropy_with_logits(
+                    labels=ground_truth, logits=logits, name="binary_cls_loss"))
 
         else:
             raise ValueError("Specify loss type to be `ranking` or `binary`")
@@ -236,12 +245,12 @@ class IRSModel:
         key: four diff scope names correspond to four diff component
         value: the corresponding optimization operator/step"""
 
-        all_var_scopes = ["ae", "gat", "afm", "attn_agg", "centroids"]
-        self.optim_dict = dict(
-            [(x, self.optimizer.minimize(self.loss, global_step=self.global_step,
-                var_list=tf.compat.v1.get_collection(
-                    tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=x)))
-             for x in all_var_scopes])
+        # all_var_scopes = ["ae", "gat", "afm", "attn_agg", "centroids"]
+        # self.optim_dict = dict(
+        #     [(x, self.optimizer.minimize(self.loss, global_step=self.global_step,
+        #         var_list=tf.compat.v1.get_collection(
+        #             tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=x)))
+        #      for x in all_var_scopes])
 
         # ======================
         #   Generate score
