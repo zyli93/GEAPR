@@ -35,7 +35,7 @@ CUDA_VISIBLE_DEVICES=$1 python3 src/main_zyli.py \
     --log_per_iter 400 \
     --negative_sample_ratio 5 \
     --valid_set_size 256  --loss_type binary \
-    --learning_rate 0.0001 \
+    --learning_rate 0.0005 \
     --regularization_weight 0.0001 \
     --embedding_dim 64 \
     --hid_rep_dim 32 \

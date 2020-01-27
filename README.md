@@ -19,6 +19,13 @@ There's nothing in this one now.
 1. `src/build_graphes.py.old` is a file backuped on Nov.24.
 2. users average latitude and longitude should be taken from training data, 
     but now I am taking from all data. need to change it later.
+3. To disable the wordy `Warnings` of TensorFlow please add the following:
+```python
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # << this line disables the warnings
+import tensorflow as tf
+```
+The deprecation warnings are not removable.
 
 ## Download raw dataset
 
