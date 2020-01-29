@@ -53,4 +53,4 @@ CUDA_VISIBLE_DEVICES=$1 python3 src/main_zyli.py \
     --num_user_ctrd 16 \
     --num_item_ctrd 16 \
     --ctrd_corr_weight 0.001 \
-    --candidate_k 10,20,40,60,80,100,200,300
+    --candidate_k 10,20,30,40,50,60,70,80,90,100
