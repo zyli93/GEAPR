@@ -245,12 +245,12 @@ class IRSModel:
         key: four diff scope names correspond to four diff component
         value: the corresponding optimization operator/step"""
 
-        # all_var_scopes = ["ae", "gat", "afm", "attn_agg", "centroids"]
-        # self.optim_dict = dict(
-        #     [(x, self.optimizer.minimize(self.loss, global_step=self.global_step,
-        #         var_list=tf.compat.v1.get_collection(
-        #             tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=x)))
-        #      for x in all_var_scopes])
+        all_var_scopes = ["ae", "gat", "afm", "attn_agg", "centroids"]
+        self.optim_dict = dict(
+            [(x, self.optimizer.minimize(self.loss, global_step=self.global_step,
+                var_list=tf.compat.v1.get_collection(
+                    tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=x)))
+             for x in all_var_scopes])
 
         # ======================
         #   Generate score

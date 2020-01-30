@@ -1,6 +1,8 @@
 import os
+import sys
 from itertools import product
 from datetime import datetime
+from src.utils import make_dir
 
 CMD = """
 CUDA_VISIBLE_DEVICES=$1 python3 src/main_zyli.py \
@@ -57,8 +59,7 @@ ADR = [0.1, 0.3, 0.5]  # 1
 CCW = [0.001, 0.005, 0.01, 0.1]  # 4
 
 PARAMS = [NSR, LT, LR, RW, ED, HRD, TAO, GFD, GCD, ADR, CCW]
-
-TID_START = 0
+TID_START = 100
 
 
 def fulfill_cmd(id, l):
@@ -67,8 +68,14 @@ def fulfill_cmd(id, l):
 
 
 if __name__ == "__main__":
-    str = datetime.now().isoformat()[8:19]
-    with open("./grid_search{}+".settings", "")
+    str_fn = datetime.now().isoformat()[8:19]
+    make_dir("./grid_search/")
+    with open("./grid_search/{}.settings".format(str_fn), "w") as fout:
+        print("tid,nsr,lt,lr,rw,ed,hrd,tao,gfd,gcd,adr,ccw", file=fout)
         for i, param_list in enumerate(product(*PARAMS)):
-            cmd_line = fulfill_cmd(i + TID_START, param_list)
+            tid = i + TID_START
+            cmd_line = fulfill_cmd(tid, param_list)
+            print(str(tid)+","+",".join([str(x) for x in param_list]),
+                  file=fout)
             os.system(cmd_line)
+            sys.exit()
