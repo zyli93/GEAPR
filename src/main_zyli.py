@@ -25,7 +25,8 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 
-from model import IRSModel
+# from model import IRSModel
+from model_nocentroid import IRSModel
 from train import train
 from dataloader import DataLoader
 from utils import check_flags, create_dirs
@@ -48,6 +49,7 @@ flags.DEFINE_integer('log_per_iter', 200, "Number of iterations per log.")
 flags.DEFINE_integer('negative_sample_ratio', 3, "Negative sample ratio")
 flags.DEFINE_integer('valid_set_size', 64, "Validation set size")
 flags.DEFINE_string("loss_type", "ranking", "Choose from `binary` and `ranking`")
+flags.DEFINE_boolean("separate_loss", False, "Whether to separate loss terms!")
 
 # Hyperparam - Optimization
 flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')

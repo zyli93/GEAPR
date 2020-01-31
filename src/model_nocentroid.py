@@ -142,35 +142,41 @@ class IRSModel:
             user_emb = tf.squeeze(
                 tf.matmul(user_emb, user_emb_attn, transpose_a=True))  # (b,h)
 
+
+        """
+        Without centroid:
+            use: user_emb, pos_item_emb, and neg_item_emb
+        """
+
         # ============================
         #   Centroids/Interests/Cost
         # ============================
-        # Get users' centroid representation and logits
-        user_ct_rep, self.user_ct_logits = centroid(input_features=user_emb,
-            n_centroid=self.F.num_user_ctrd, emb_size=self.F.hid_rep_dim,
-            tao=self.F.tao, var_scope="centroids", var_name="user_centroids",
-            activation=self.F.ctrd_activation, regularizer=reglr)  # (b,d)
-
-        # Get items' centroid representation and logits
-        item_ct_reps = []  # 0,pos; 1,neg
-        item_ct_logits = []  # the centroid logits
-        for x_item_emb in [pos_item_emb, neg_item_emb]:
-            tmp_ct_rep, tmp_ct_logits = centroid(input_features=x_item_emb,
-                n_centroid=self.F.num_item_ctrd, emb_size=self.F.hid_rep_dim,
-                tao=self.F.tao, var_scope="centroids", var_name="item_centroids",
-                activation=self.F.ctrd_activation, regularizer=reglr)
-            item_ct_reps.append(tmp_ct_rep)
-            item_ct_logits.append(tmp_ct_logits)
-
-        self.pos_item_ct_logits = item_ct_logits[0],
-        self.neg_item_ct_logits = item_ct_logits[1]
-
-        with tf.compat.v1.variable_scope("centroids", reuse=tf.compat.v1.AUTO_REUSE):
-            self.user_centroids = tf.compat.v1.get_variable(name="user_centroids")
-            self.item_centroids = tf.compat.v1.get_variable(name="item_centroids")
-
-        user_ct_corr_cost = centroid_corr(self.user_centroids, "user_ctrd_corr")
-        item_ct_corr_cost = centroid_corr(self.item_centroids, "item_ctrd_corr")
+        # # Get users' centroid representation and logits
+        # user_ct_rep, self.user_ct_logits = centroid(input_features=user_emb,
+        #     n_centroid=self.F.num_user_ctrd, emb_size=self.F.hid_rep_dim,
+        #     tao=self.F.tao, var_scope="centroids", var_name="user_centroids",
+        #     activation=self.F.ctrd_activation, regularizer=reglr)  # (b,d)
+        #
+        # # Get items' centroid representation and logits
+        # item_ct_reps = []  # 0,pos; 1,neg
+        # item_ct_logits = []  # the centroid logits
+        # for x_item_emb in [pos_item_emb, neg_item_emb]:
+        #     tmp_ct_rep, tmp_ct_logits = centroid(input_features=x_item_emb,
+        #         n_centroid=self.F.num_item_ctrd, emb_size=self.F.hid_rep_dim,
+        #         tao=self.F.tao, var_scope="centroids", var_name="item_centroids",
+        #         activation=self.F.ctrd_activation, regularizer=reglr)
+        #     item_ct_reps.append(tmp_ct_rep)
+        #     item_ct_logits.append(tmp_ct_logits)
+        #
+        # self.pos_item_ct_logits = item_ct_logits[0],
+        # self.neg_item_ct_logits = item_ct_logits[1]
+        #
+        # with tf.compat.v1.variable_scope("centroids", reuse=tf.compat.v1.AUTO_REUSE):
+        #     self.user_centroids = tf.compat.v1.get_variable(name="user_centroids")
+        #     self.item_centroids = tf.compat.v1.get_variable(name="item_centroids")
+        #
+        # user_ct_corr_cost = centroid_corr(self.user_centroids, "user_ctrd_corr")
+        # item_ct_corr_cost = centroid_corr(self.item_centroids, "item_ctrd_corr")
 
         # ======================
         #       Losses
@@ -178,14 +184,15 @@ class IRSModel:
         if self.F.loss_type == "ranking":
             # inner product + subtract
             pos_interactions = tf.reduce_sum(
-                tf.multiply(user_ct_rep, item_ct_reps[0]), axis=-1)  # (b)
+                # tf.multiply(user_ct_rep, item_ct_reps[0]), axis=-1)  # (b)
+                tf.multiply(user_emb, pos_item_emb), axis=-1)  # (b)
             pos_interactions = tf.tile(pos_interactions,
-                multiples=[self.F.negative_sample_ratio])  # (b*nsr)
+                                       multiples=[self.F.negative_sample_ratio])  # (b*nsr)
 
-            user_ct_rep_tiled = tf.tile(user_ct_rep,
+            user_rep_tiled = tf.tile(user_emb,
                 multiples=[self.F.negative_sample_ratio, 1])  # (b*(nsr+1),h)
             neg_interactions = tf.reduce_sum(
-                tf.multiply(user_ct_rep_tiled, item_ct_reps[1]), axis=-1)  # (b*nsr)
+                tf.multiply(user_rep_tiled, neg_item_emb), axis=-1)  # (b*nsr)
 
             negpos_diff = tf.subtract(neg_interactions, pos_interactions)
 
@@ -208,10 +215,10 @@ class IRSModel:
             ground_truth = tf.constant([1]*p_size+[0]*n_size, dtype=tf.float32,
                 shape=[p_size+n_size])  # (p_size+n_size)
 
-            user_ct_rep_tiled = tf.tile(user_ct_rep,
+            user_ct_rep_tiled = tf.tile(user_emb,
                 multiples=[self.F.negative_sample_ratio+1, 1])
             # shape: (b*nsr, d)
-            item_ct_reps_concat = tf.concat(item_ct_reps, axis=0)
+            item_ct_reps_concat = tf.concat([pos_item_emb,  neg_item_emb], axis=0)
             logits = tf.reduce_sum(
                 tf.multiply(user_ct_rep_tiled, item_ct_reps_concat), axis=-1)
             rank_loss = tf.reduce_sum(
@@ -227,10 +234,11 @@ class IRSModel:
         #        regularization
 
         # ae_loss = self.F.ae_recon_loss_weight * ae_recons_loss
-        ct_loss = self.F.ctrd_corr_weight * (user_ct_corr_cost + item_ct_corr_cost)
+        # ct_loss = self.F.ctrd_corr_weight * (user_ct_corr_cost + item_ct_corr_cost)
         rg_loss = tf.compat.v1.losses.get_regularization_loss()
 
-        self.losses = [rank_loss, ct_loss, rg_loss]
+        # self.losses = [rank_loss, ct_loss, rg_loss]
+        self.losses = [rank_loss, rg_loss]
         self.loss = tf.reduce_sum(self.losses)
 
         # ======================
@@ -263,10 +271,12 @@ class IRSModel:
         """Generate score for testing time
         input: user_ct_rep, item_emb_mat"""
 
-        all_item_ct_rep, _ = centroid(
-            input_features=item_emb_mat, n_centroid=self.F.num_item_ctrd,
-            emb_size=self.F.hid_rep_dim, tao=self.F.tao, var_scope="centroids",
-            var_name="item_centroids", activation=self.F.ctrd_activation,
-            regularizer=reglr)  # (n,h)
+        # all_item_ct_rep, _ = centroid(
+        #     input_features=item_emb_mat, n_centroid=self.F.num_item_ctrd,
+        #     emb_size=self.F.hid_rep_dim, tao=self.F.tao, var_scope="centroids",
+        #     var_name="item_centroids", activation=self.F.ctrd_activation,
+        #     regularizer=reglr)  # (n,h)
 
-        self.test_scores = tf.matmul(user_ct_rep, all_item_ct_rep, transpose_b=True)  # (b,n)
+        all_item_rep = item_emb_mat
+
+        self.test_scores = tf.matmul(user_emb, all_item_rep, transpose_b=True)  # (b,n)

@@ -97,14 +97,24 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
         embedding_mat = get_embeddings(vocab_size=feat_size, num_units=emb_dim,
             var_scope=scope, zero_pad=True)  # (|A|+1, d) lookup table for all attr emb
         uattr_emb = tf.nn.embedding_lookup(embedding_mat, input_features)  # (b, k, d)
+
+        attn_b = tf.compat.v1.get_variable(name="attention_b1", dtype=tf.float32,
+            shape=[emb_dim], initializer=initializer, regularizer=regularizer)  # (d)
+        # FIRST ORDER
+        attn_q1 = tf.compat.v1.get_variable(name="attention_q1", dtype=tf.float32,
+            shape=[emb_dim, 1], initializer=initializer, regularizer=regularizer) # (1,d)
+        beta_logits = tf.nn.relu(tf.matmul(uattr_emb, attn_q1))  #
+        attn_out1 = tf.nn.softmax(beta_logits)  #
+
+        # SECOND ORDER
         element_wise_prod_list = []
 
         attn_W = tf.compat.v1.get_variable(name="attention_W", dtype=tf.float32,
             shape=[emb_dim, hid_rep_dim], initializer=initializer, 
             regularizer=regularizer)
-        attn_p = tf.compat.v1.get_variable(name="attention_p", dtype=tf.float32,
+        attn_q2 = tf.compat.v1.get_variable(name="attention_q2", dtype=tf.float32,
             shape=[hid_rep_dim], initializer=initializer, regularizer=regularizer)
-        attn_b = tf.compat.v1.get_variable(name="attention_b", dtype=tf.float32,
+        attn_b2 = tf.compat.v1.get_variable(name="attention_b", dtype=tf.float32,
             shape=[hid_rep_dim], initializer=initializer, regularizer=regularizer)
 
         for i in range(0, attr_size):
@@ -112,33 +122,35 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
                 element_wise_prod_list.append(
                     tf.multiply(uattr_emb[:, i, :], uattr_emb[:, j, :]))
 
-        element_wise_prod = tf.stack(element_wise_prod_list, axis=1)  # (b,(k*(k-1),d)
-        # interactions = tf.reduce_sum(element_wise_prod, axis=2)  # b * (k*(k-1))
-        num_interactions = attr_size * (attr_size - 1) // 2  # aka: k *(k-1)
+        element_wise_prod = tf.stack(element_wise_prod_list, axis=1)  # (b,(k*(k-1)/2,d)
+        # interactions = tf.reduce_sum(element_wise_prod, axis=2)  # b * (k*(k-1)/2)
+        num_interactions = attr_size * (attr_size - 1) // 2  # aka: k *(k-1)/2
 
         # attentional part
         attn_mul = tf.reshape(
             tf.matmul(tf.reshape(
                 element_wise_prod, shape=[-1, emb_dim]), attn_W),
-            shape=[-1, num_interactions, hid_rep_dim])  # b * (k*k-1)) * h
+            shape=[-1, num_interactions, hid_rep_dim])  # b * (k*k-1)/2) * h
 
         attn_relu = tf.reduce_sum(
-            tf.multiply(attn_p, tf.nn.relu(attn_mul + attn_b)), axis=2, keepdims=True)
-        # after relu/multiply: b*(k*(k-1))*h; 
-        # after reduce_sum + keepdims: b*(k*(k-1))*1
+            tf.multiply(attn_q2, tf.nn.relu(attn_mul + attn_b2)), axis=2, keepdims=True)
+        # after relu/multiply: b*(k*(k-1)/2)*h;
+        # after reduce_sum + keepdims: b*(k*(k-1)/2)*1
 
-        attn_out = tf.nn.softmax(attn_relu)  # b*(k*(k-1)*h
+        attn_out2 = tf.nn.softmax(attn_relu)  # b*(k*(k-1)*h
 
-        afm = tf.reduce_sum(tf.multiply(attn_out, attn_mul), axis=1, name="afm")
-        # afm: b*(k*(k-1))*h => b*h
+        # just added relu Jan30
+        afm = tf.reduce_sum(tf.nn.relu(
+            tf.multiply(attn_out2, element_wise_prod)), axis=1, name="afm")
+        # afm: b*(k*(k-1))*d => b*d
         if use_dropout:
             print(use_dropout, dropout_rate)
             afm = tf.layers.dropout(afm, dropout_rate, training=is_training)
 
-        attn_out = tf.squeeze(attn_out, name="attention_output")
+        attn_out2 = tf.squeeze(attn_out2, name="attention_output")
 
         # TODO: first order feature not considered yet!
-        return afm, attn_out
+        return afm, attn_out2
 
 
 def gatnet(var_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,
@@ -191,7 +203,10 @@ def gatnet(var_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,
 
         h_1 = tf.concat(hidden_features, axis=-1)  # [n_head*(b, oz)] => (b, oz*n_head)
         # logits = tf.layers.conv1d(h_1, hid_rep_dim, 1, use_bias=False)  # (b, oz)
-        logits = tf.layers.dense(h_1, hid_rep_dim, use_bias=False)
+
+        # just added relu Jan 30
+        logits = tf.layers.dense(h_1, hid_rep_dim, use_bias=False,
+                                 activation=tf.nn.relu)
 
         return logits,  attns
 

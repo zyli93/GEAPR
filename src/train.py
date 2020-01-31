@@ -7,7 +7,7 @@ from tqdm import tqdm
 import numpy as np
 import tensorflow as tf
 from utils import build_msg
-from rank_metrics import metrics_poi, gen_bin_indicator
+from rank_metrics import metrics_poi
 
 
 def train(flags, model, dataloader):
@@ -38,9 +38,9 @@ def train(flags, model, dataloader):
     np.random.seed(F.random_seed)
 
     # === Run training ===
-    print("=======================")
+    print("===" * 18)
     print("\t\tExperiment ID:{}".format(F.trial_id))
-    print("=======================")
+    print("===" * 18)
 
     # training
     with tf.compat.v1.Session(config=config) as sess, \
@@ -62,26 +62,46 @@ def train(flags, model, dataloader):
                 # break  # used to debug for evaluation
                 bUf, bUsc = dataloader.get_user_graphs(bU)
                 bUsc, bUf = bUsc.toarray(), bUf.toarray()
-
                 bUattr = dataloader.get_user_attributes(bU)
 
-                # run training operation
-                _, gs, loss, losses, odict = sess.run(
-                    fetches=[model.train_op, model.global_step, model.loss, model.losses,
-                             model.output_dict],
-                    feed_dict={
-                        model.is_train: True, model.batch_user: bU,
-                        model.batch_pos: bP, model.batch_neg: bN,
-                        model.batch_uf: bUf, model.batch_usc: bUsc,
-                        model.batch_uattr: bUattr})
+                feed_dict = {
+                    model.is_train: True, model.batch_user: bU,
+                    model.batch_pos: bP, model.batch_neg: bN,
+                    model.batch_uf: bUf, model.batch_usc: bUsc,
+                    model.batch_uattr: bUattr}
 
-                # print(losses)
-                # print(losses[0])
+                # run training operation, update global step
+                _ = sess.run(
+                    fetches=[model.inc_gs_op] + model.optim_ops,
+                    feed_dict=feed_dict)
+
+                # # compute loss and output
+                # gs, odict, loss, losses = sess.run(
+                #     fetches=[model.global_step,
+                #         model.output_dict, model.loss, model.losses],
+                #     feed_dict=feed_dict)
+
 
                 # print results and write to file
                 if bI and not(bI % F.log_per_iter):
+                    # compute loss and output
+                    gs, odict, loss, losses = sess.run(
+                        fetches=[model.global_step,
+                                 model.output_dict, model.loss, model.losses],
+                        feed_dict=feed_dict)
                     msg_loss = build_msg(stage="Trn", ep=epoch, gs=gs, bi=bI, loss=loss)
+
                     print(msg_loss)
+
+                    print("losses")
+                    print(losses)
+
+                    print("output dict")
+                    print(odict)
+
+                    for i, x in enumerate(odict["module_fan_in"]):
+                        print(i)
+                        print(x.max(), x.min(), x.mean(), x.var())
                     # print(msg_loss, file=perf_writer)  # write to log
                     # if bI % (10 * F.log_per_iter) == 0:
                     #     print(msg_loss)
