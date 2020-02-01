@@ -100,11 +100,16 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
 
         attn_b = tf.compat.v1.get_variable(name="attention_b1", dtype=tf.float32,
             shape=[emb_dim], initializer=initializer, regularizer=regularizer)  # (d)
+
         # FIRST ORDER
         attn_q1 = tf.compat.v1.get_variable(name="attention_q1", dtype=tf.float32,
-            shape=[emb_dim, 1], initializer=initializer, regularizer=regularizer) # (1,d)
-        beta_logits = tf.nn.relu(tf.matmul(uattr_emb, attn_q1))  #
-        attn_out1 = tf.nn.softmax(beta_logits)  #
+            shape=[emb_dim, 1], initializer=initializer, regularizer=regularizer)  # (d, 1)
+        beta_logits = tf.nn.relu(tf.matmul(uattr_emb, attn_q1))  # (b, k, 1)
+        attn_out1_weights = tf.nn.softmax(beta_logits, axis=1)  # (b, k, 1)
+
+        afm1 = tf.reduce_sum(tf.multiply(attn_out1_weights, uattr_emb),  # (b,k,d)
+                             axis=1)  # (b,d)
+        attn_out1 = tf.squeeze(attn_out1_weights)  # (b,k)
 
         # SECOND ORDER
         element_wise_prod_list = []
@@ -137,20 +142,23 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
         # after relu/multiply: b*(k*(k-1)/2)*h;
         # after reduce_sum + keepdims: b*(k*(k-1)/2)*1
 
-        attn_out2 = tf.nn.softmax(attn_relu)  # b*(k*(k-1)*h
+        attn_out2 = tf.nn.softmax(attn_relu)  # b*(k*(k-1)*1
 
         # just added relu Jan30
-        afm = tf.reduce_sum(tf.nn.relu(
-            tf.multiply(attn_out2, element_wise_prod)), axis=1, name="afm")
-        # afm: b*(k*(k-1))*d => b*d
+        afm2 = tf.reduce_sum(
+            tf.multiply(attn_out2, element_wise_prod), axis=1, name="afm")
+        # afm2: b*(k*(k-1))*d => b*d
+
+        afm = tf.nn.bias_add(afm1 + afm2, attn_b)  # (b*d)
+        afm = tf.layers.dense(afm, hid_rep_dim)
+
         if use_dropout:
             print(use_dropout, dropout_rate)
             afm = tf.layers.dropout(afm, dropout_rate, training=is_training)
 
         attn_out2 = tf.squeeze(attn_out2, name="attention_output")
 
-        # TODO: first order feature not considered yet!
-        return afm, attn_out2
+        return afm, attn_out1, attn_out2
 
 
 def gatnet(var_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,

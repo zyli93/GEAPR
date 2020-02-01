@@ -29,7 +29,7 @@ CUDA_VISIBLE_DEVICES=$1 python3 src/main_zyli.py \
     --ae_layers 64,32 \
     --is_training \
     --trial_id 1 \
-    --epoch 300 \
+    --epoch 40 \
     --batch_size 256 \
     --yelp_city tor \
     --nosave_model \
