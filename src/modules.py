@@ -111,6 +111,8 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
                              axis=1)  # (b,d)
         attn_out1 = tf.squeeze(attn_out1_weights)  # (b,k)
 
+        print(afm1.shape)
+
         # SECOND ORDER
         element_wise_prod_list = []
 
@@ -149,14 +151,18 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
             tf.multiply(attn_out2, element_wise_prod), axis=1, name="afm")
         # afm2: b*(k*(k-1))*d => b*d
 
+        print(afm2.shape)
+        attn_out2 = tf.squeeze(attn_out2, name="attention_output")
+
         afm = tf.nn.bias_add(afm1 + afm2, attn_b)  # (b*d)
-        afm = tf.layers.dense(afm, hid_rep_dim)
+        print(afm.shape)
+        print(hid_rep_dim)
+        afm = tf.layers.dense(afm, hid_rep_dim, activation=tf.nn.relu,
+                              use_bias=False)  # (b*h)
 
         if use_dropout:
             print(use_dropout, dropout_rate)
             afm = tf.layers.dropout(afm, dropout_rate, training=is_training)
-
-        attn_out2 = tf.squeeze(attn_out2, name="attention_output")
 
         return afm, attn_out1, attn_out2
 

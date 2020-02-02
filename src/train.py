@@ -81,7 +81,6 @@ def train(flags, model, dataloader):
                 #         model.output_dict, model.loss, model.losses],
                 #     feed_dict=feed_dict)
 
-
                 # print results and write to file
                 if bI and not(bI % F.log_per_iter):
                     # compute loss and output
@@ -96,18 +95,12 @@ def train(flags, model, dataloader):
                     print("losses")
                     print(losses)
 
-                    print("output dict")
-                    print(odict)
-
                     for i, x in enumerate(odict["module_fan_in"]):
-                        print(i)
-                        print(x.max(), x.min(), x.mean(), x.var())
-                    # print(msg_loss, file=perf_writer)  # write to log
+                        print(i, x.max(), x.min(), x.mean(), x.var())
+
+                    print(msg_loss, file=perf_writer)  # write to log
                     # if bI % (10 * F.log_per_iter) == 0:
                     #     print(msg_loss)
-                    # TODO: uncomment later, turn on file writer
-
-                    # print(odict["negpos_diff"])
 
                 # save model, only when save model flag is on
                 if F.save_model and bI and not(bI % F.save_per_iter):
@@ -115,20 +108,12 @@ def train(flags, model, dataloader):
                           .format(sess.run(model.global_step)))
                     saver.save(sess, save_path=ckpt_dir, global_step=gs)
 
-            # run validation set
-            # eval_dict = evaluate(False, model, dataloader, F, sess)
-            # msg_val_score = build_msg("Val", epoch=epoch, eval_dict=eval_dict)
-
             # run test set
             eval_dict = evaluate(True, model, dataloader, F, sess)
             msg_test_score = build_msg("Tst", epoch=epoch, eval_dict=eval_dict)
 
-            # print(msg_val_score)
-            # print(msg_val_score, file=perf_writer)
-
-            # TODO: uncomment later, turn on file writer
             print(msg_test_score)
-            # print(msg_test_score, file=perf_writer)
+            print(msg_test_score, file=perf_writer)
 
     print("Training finished!")
 

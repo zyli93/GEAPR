@@ -53,7 +53,7 @@ class IRSModel:
         self.user_centroids, self.item_centroids = None, None  # ctrds
         self.train_op = None
         self.test_scores = None
-        self.uf_attns, self.uattr_attns = None, None
+        self.uf_attns, self.uattr_attns1, self.uattr_attns2 = None, None, None
         self.pos_item_ct_logits, self.neg_item_ct_logits = None, None
         self.user_emb_agg_attn = None
         self.user_ct_logits = None
@@ -108,7 +108,7 @@ class IRSModel:
         # ===========================
         #      Attention FM
         # ===========================
-        uattr_rep, self.uattr_attns = attentional_fm(
+        uattr_rep, self.uattr_attns1, self.uattr_attns2 = attentional_fm(
             var_scope="afm", input_features=self.batch_uattr, is_training=self.is_train,
             emb_dim=self.F.embedding_dim, feat_size=self.F.afm_num_total_user_attr+1,
             initializer=inilz, regularizer=reglr,
@@ -142,11 +142,8 @@ class IRSModel:
             user_emb = tf.squeeze(
                 tf.matmul(user_emb, user_emb_attn, transpose_a=True))  # (b,h)
 
-
-        """
-        Without centroid:
-            use: user_emb, pos_item_emb, and neg_item_emb
-        """
+        """Without centroid:
+            use: user_emb, pos_item_emb, and neg_item_emb"""
 
         # ============================
         #   Centroids/Interests/Cost
