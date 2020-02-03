@@ -146,7 +146,6 @@ def parse_interactions():
             cities.append(business_profile[_bid]["city"])
             timestamps.append(data['date'])
 
-
     interactions = pd.DataFrame({
         'user': users, 'business': businesses, "city": cities,
         "timestamp": timestamps})
