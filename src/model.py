@@ -7,9 +7,6 @@
             Emb mat cardinality add one (+1) because the user/item/attribute
             id are from 1 to # of user. Adding one to avoid overflow.
 """
-
-import sys
-
 import tensorflow as tf
 from modules import get_embeddings
 from modules import autoencoder, gatnet, attentional_fm

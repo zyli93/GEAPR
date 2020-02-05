@@ -377,3 +377,4 @@ def centroid_corr(centroid_mat, var_scope):
         corr_cost = tf.truediv(numerator, denominator)
 
         return tf.reduce_sum(corr_cost)
+

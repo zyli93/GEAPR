@@ -14,11 +14,13 @@ import tensorflow as tf
 from modules import get_embeddings
 from modules import autoencoder, gatnet, attentional_fm
 from pandas import read_csv
+from scipy.sparse import load_npz
+from sklearn.preprocessing import normalize
 
 
 class IRSModel:
     """docstring"""
-    def __init__(self, flags):
+    def __init__(self, flags, ub_adj):
         """Build a model with basic Auto Encoder
 
         Args:
@@ -71,9 +73,17 @@ class IRSModel:
         self.train_op = None
         self.optim_ops, self.optim_dict = None, None
 
+        self.ub_adj = tf.convert_to_tensor(ub_adj)
+
         # TODO: uncomment
-        # self.poi_inf_mat = self.load_poi_inf_mat()
-        # self.poi_inf_mat = tf.convert_to_tensor(self.poi_inf_mat, tf.float32, name="poi_influence")
+        self.poi_inf_mat = self.load_poi_inf_mat()
+        self.poi_inf_mat = tf.convert_to_tensor(self.poi_inf_mat, tf.float32, name="poi_influence")
+
+        # build
+        ub_data, (ub_row, ub_col), ub_shape = self.load_user_poi_adj_mat()
+        indices_list = list(zip((list(ub_row), list(ub_col))))
+        self.sp_ub_adj_mat = tf.compat.v1.SparseTensor(
+            indices=indices_list, values=list(ub_data), dense_shape=ub_shape)
 
         # build graph
         self.build_graph()
@@ -85,6 +95,15 @@ class IRSModel:
         assert df.shape[0] == self.F.num_total_user + 1
         assert df.shape[0] == self.F.num_total_item + 1
         return df.values
+
+    def load_user_poi_adj_mat(self):
+        """load user-poi adjacency matrix"""
+        in_file = "./data/parse/yelp/citycluster/{}/city_user_business_adj_mat.npz"
+        sp_mat = load_npz(in_file)  # coo
+        sp_mat = normalize(sp_mat, norm="l1", axis=1)  # normalize
+        assert sp_mat.shape[0] == self.F.num_total_user + 1
+        assert sp_mat.shape[1] == self.F.num_total_item + 1
+        return sp_mat.data, (sp_mat.row, sp_mat.col), sp_mat.shape
 
     def build_graph(self):
         """
@@ -99,6 +118,16 @@ class IRSModel:
         inilz = tf.contrib.layers.xavier_initializer()
 
         # ===========================
+        #      Item embedding
+        # ===========================
+        # item embedding is moved to the first place
+        item_emb_mat = get_embeddings(vocab_size=self.F.num_total_item+1,
+                                      num_units=self.F.hid_rep_dim, var_scope="item",
+                                      zero_pad=True)  #
+        pos_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_pos)  # (b,h)
+        neg_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_neg)  # (b*nsr,h)
+
+        # ===========================
         #      Auto Encoders
         # ===========================
         usc_rep, ae_recons_loss = autoencoder(input_features=self.batch_usc,
@@ -108,8 +137,8 @@ class IRSModel:
         # ===========================
         #   Graph Attention Network
         # ===========================
-        user_emb_mat = get_embeddings(vocab_size=self.F.num_total_user+1,
-            num_units=self.F.embedding_dim, var_scope="gat", zero_pad=True)
+        # m: # of poi's; sp_ub_adj_mat: (n+1, m+1)
+        user_emb_mat = tf.matmul(self.sp_ub_adj_mat, item_emb_mat)  # (n, d)
 
         uf_rep, self.uf_attns = gatnet(
             var_scope="gat", embedding_mat=user_emb_mat, is_training=self.is_train,
@@ -127,17 +156,17 @@ class IRSModel:
             use_dropout=self.F.afm_use_dropout, dropout_rate=self.F.afm_dropout_rate,
             hid_rep_dim=self.F.hid_rep_dim, attr_size=self.F.afm_num_field)
 
-        # ===========================
-        #      Item embedding
-        # ===========================
-        item_emb_mat = get_embeddings(vocab_size=self.F.num_total_item+1,
-            num_units=self.F.hid_rep_dim, var_scope="item_embedding_matrix",
-            zero_pad=True)
-        pos_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_pos)  # (b,h)
-        neg_item_emb = tf.nn.embedding_lookup(item_emb_mat, self.batch_neg)  # (b*nsr,h)
+        # ==========================
+        #    Geo preference
+        # ==========================
+        num
+        user_geo_pref = get_embeddings(vocab_size=self.F.num_total_user+1,
+            num_units=self.F.xxx, var_scope="geo", zero_pad=True)  # (n+1,d)
+
+
 
         # ==========================
-        #      User embedding
+        #      Merging factors
         # ==========================
         # TODO: normalization?
         with tf.compat.v1.variable_scope("attn_agg"):

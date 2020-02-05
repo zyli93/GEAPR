@@ -1,6 +1,6 @@
 ujson
 argparse
-pandas
+pandas==0.25.0
 numpy
 sklearn
 ipython

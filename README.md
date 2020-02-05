@@ -117,6 +117,12 @@ In the later training steps, the model will NOT use `processed_city_user_profile
 
 Please pay attention to the `[num_bkt]`, we are using bucketing for all features by default. If some of the features are categorical and you don't think applying bucketing on that is a good idea. Please add the column name in `configs/user_attr_discrete.txt`: one-line per column name.
 
+## 3. Extract Geolocation features and user/business adj features
+```bash
+$ python src/geolocations.py --city=lv --num_lat_grid 30 --num_long_grid 30 --num_user 9582 --num_business 9102
+```
+
+
 
 ## Run it!
 
@@ -194,5 +200,10 @@ business test max included
         feature yelping_years - count 10
 80
 ```
+
+## Change log:
+
+1. `model_nocentroid.py`: removed the centroid
+2. `model_nc_geo.py`: modified on top of `model_nocentroid.py`, add geo information
 
 

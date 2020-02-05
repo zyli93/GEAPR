@@ -57,10 +57,10 @@ class DataLoader:
             self.usc_graph = load_npz(graph_dir + "uf_sc_graph.npz")
             # self.uf_dict = load_pkl(city_dir + "city_user_friend.pkl")
 
+            # todo: uncomment me below
+            # self.ub_graph = load_npz(city_dir + "city_user_business_adj_mat.npz")
+
             print("[Data loader] loading train pos, train neg, and test instances.")
-            # self.train_data = pd.read_csv(interaction_dir + "train.csv")
-            # self.test_data = pd.read_csv(interaction_dir + "test.csv")
-            # self.dev_data = pd.read_csv(interaction_dir + "dev.csv")
             self.train_pos = pd.read_csv(train_test_dir + "train_pos.csv").values
 
             self.train_neg = load_pkl(train_test_dir + "train_neg.pkl")
@@ -104,9 +104,9 @@ class DataLoader:
             batch = self.train_pos[i * bs: (i+1) * bs]
             batch_users = batch[:, 0]
             batch_items_pos = batch[:, 1]
-            # batch_items_neg shape: (batch_size*nsr, 1)
             batch_items_neg = np.array(
-                [neg_sample_func(x) for x in batch_users]).flatten()
+                [neg_sample_func(x) for x in batch_users]).flatten("F")
+            # batch_items_neg shape: (batch_size*nsr, 1)
 
             yield (i, batch_users, batch_items_pos, batch_items_neg)
 
@@ -182,3 +182,8 @@ class DataLoader:
         ground_truth_list = [self.test_instances[x].tolist() for x in user_id_list]
 
         return user_id_list, ground_truth_list
+
+    def load_business_influence(self):
+        """load business influence matrix"""
+        city_dir = YELP_CITY + self.f.yelp_city + "/"
+        mode
