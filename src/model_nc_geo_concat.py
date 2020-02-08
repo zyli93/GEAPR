@@ -189,12 +189,11 @@ class IRSModel:
         pos_item_emb - (b,d)
         neg_item_emb - (b*nsr, d)
         """
-        user_emb = tf.concat([user_emb, ugeo_rep], axis=1, name="geo_user_emb")
-        neg_item_emb = tf.concat([neg_item_emb, in_geo_rep], axis=1, name="neg_geo_item_emb")
-        pos_item_emb = tf.concat([pos_item_emb, ip_geo_rep], axis=1, name="pos_geo_item_emb")
+        # user_emb = tf.concat([user_emb, ugeo_rep], axis=1, name="geo_user_emb")
+        # neg_item_emb = tf.concat([neg_item_emb, in_geo_rep], axis=1, name="neg_geo_item_emb")
+        # pos_item_emb = tf.concat([pos_item_emb, ip_geo_rep], axis=1, name="pos_geo_item_emb")
 
-
-
+        # convert everything to
 
 
 

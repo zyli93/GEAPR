@@ -2,7 +2,7 @@ ujson
 argparse
 pandas==0.25.0
 numpy
-sklearn
+scikit-learn==0.22.1
 ipython
 tqdm
 configparser

@@ -1,15 +1,14 @@
 import os
-import sys
 from itertools import product
 from datetime import datetime
 from src.utils import make_dir
 
 CMD = """
-CUDA_VISIBLE_DEVICES=$1 python3 src/main_zyli.py \
+CUDA_VISIBLE_DEVICES=1 python3 src/main_zyli.py \
+    --trial_id {} \
     --ae_layers {} \
     --is_training \
-    --trial_id {} \
-    --epoch 40 \
+    --epoch 10 \
     --batch_size 256 \
     --yelp_city tor \
     --nosave_model \
@@ -40,17 +39,17 @@ CUDA_VISIBLE_DEVICES=$1 python3 src/main_zyli.py \
 # learning rate: 0.0005
 
 CONFIGS = {
-    "ae_layers": ["32", "48,32"],  # 2, other options: "48"
-    "negative_sample_ratio": [1, 3, 5],  # 3
-    "loss_type": ["ranking", "binary"],  # 2
-    "learning_rate": [0.0001, 0.0003, 0.0005],  # 3, other options: 0.001
-    "regularization_weight": [0.01, 0.05, 0.1],  # 3
-    "embedding_dim": [32, 64],  # 2
+    "ae_layers": [64],  # ["32", "48,32"],  # 2, other options: "48"
+    "negative_sample_ratio": [30, 45, 60, 75, 90],  # [1, 3, 5],  # 3
+    "loss_type": ["binary"],  # 2, binary is better than ranking
+    "learning_rate": [0.0005, 0.001],  # [0.0001, 0.0003, 0.0005],  # 3, other options: 0.001
+    "regularization_weight": [0.2],  #[0.01, 0.05, 0.1],  # 3
+    "embedding_dim": [64],  # 2
     "hid_rep_dim": [32],  # 1
     "tao": [0],  # 1
-    "gat_ft_dropout": [0.1, 0.3, 0.5],  # 3
-    "gat_coef_dropout": [0.1, 0.3, 0.5],  # 3
-    "afm_dropout_rate": [0.1, 0.3, 0.5],  # 3
+    "gat_ft_dropout": [0.3],  # [0.1, 0.3, 0.5],  # 3
+    "gat_coef_dropout": [0.3],  # [0.1, 0.3, 0.5],  # 3
+    "afm_dropout_rate": [0.3],  # [0.1, 0.3, 0.5],  # 3
     "ctrd_corr_weight": [0]  # 1
 }
 
@@ -79,7 +78,7 @@ CONFIGS = {
 # PARAMS = [AL, NSR, LT, LR, RW, ED, HRD, TAO, GFD, GCD, ADR, CCW]
 
 PARAMS = [list(x) for x in CONFIGS.values()]
-TID_START = 100
+TID_START = 300
 
 
 def fulfill_cmd(id, l):
@@ -94,8 +93,10 @@ if __name__ == "__main__":
         print("tid,nsr,lt,lr,rw,ed,hrd,tao,gfd,gcd,adr,ccw", file=fout)
         for i, param_list in enumerate(product(*PARAMS)):
             tid = i + TID_START
+            print(i)
+            print(param_list)
             cmd_line = fulfill_cmd(tid, param_list)
             print(str(tid)+","+",".join([str(x) for x in param_list]),
                   file=fout)
             os.system(cmd_line)
-            sys.exit()
+            # sys.exit()

@@ -35,7 +35,7 @@ def business_latlong(city, n_lat, n_long):
     entries = [{"id": 0, "lat": 0, "long": 0}]
     for i, bp in bus_profiles.items():
         assert i == bp['business_id']  # TODO: correct the attribute name
-        print(bp["latitude"], bp['longitude'])
+        # print(bp["latitude"], bp['longitude'])
         assert abs(bp["latitude"]) > 0.01
         assert abs(bp["longitude"]) > 0.01
 
@@ -54,24 +54,30 @@ def business_latlong(city, n_lat, n_long):
     print("\t[business lat-long] Long: max- {}, min- {}, delta- {}".format(
         max_long, min_long, max_long - min_long))
 
-
     print("\t[business lat-long] creating bucketing grids ...")
     bus_prof_df = bus_prof_df.assign(
-        lat_grid=pd.cut(bus_prof_df.lat, n_lat, labels=np.arange(n_lat)))
+        lat_grid=pd.cut(bus_prof_df.lat, n_lat, labels=np.arange(n_lat)))  # m
     bus_prof_df = bus_prof_df.assign(
-        long_grid=pd.cut(bus_prof_df.long, n_long, labels=np.arange(n_long)))
+        long_grid=pd.cut(bus_prof_df.long, n_long, labels=np.arange(n_long)))  # m
 
     geo_scores_list = []
-    for direction in [bus_prof_df.long.to_numpy(), bus_prof_df.lat.to_numpy()]:
+    for n_grid, direction in [(n_long, bus_prof_df.long_grid.to_numpy()),
+                              (n_lat, bus_prof_df.lat_grid.to_numpy())]:
         # (x - y)
         print("\t[business lat-long] computing lat & long scores ...")
-        signed_mht_distance = direction.reshape((1, -1)) - direction.reshape((-1, 1))
-        norm_signed_mht_distance = signed_mht_distance / np.std(signed_mht_distance)
+        signed_mht_distance = direction.reshape((-1, 1)) - np.arange(n_grid).reshape(1, -1)  # m, n_grid
+        std_ = np.std(list(range(-(n_grid // 2 - 1), n_grid // 2)))
+        norm_signed_mht_distance = signed_mht_distance / std_
         scores = norm.pdf(norm_signed_mht_distance)
         geo_scores_list.append(scores)
 
-    geo_score = geo_scores_list[0] + geo_scores_list[1]  # longitude + latitude
-    print("\t[business lat-long] processing business latitude and longitude")
+    geo_scores_list[0] = np.expand_dims(geo_scores_list[0], axis=1)  # long
+    geo_scores_list[1] = np.expand_dims(geo_scores_list[1], axis=2)  # lat
+    geo_score = geo_scores_list[0] + geo_scores_list[1]  # num_user * lat * long
+    geo_score_dim1_size = geo_score.shape[0]
+    geo_score = geo_score.reshape(geo_score_dim1_size, -1)
+    print("\t[business lat-long] shape ", geo_score.shape)
+    print("\t[business lat-long] processing b-usiness latitude and longitude")
     np.savetxt(GEO_SCORE_OUT.format(city)+"business_influence_scores.csv", geo_score,
                fmt="%.10e", delimiter=",")
 
@@ -105,8 +111,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print("[Geolocations] processing business latitude & longitude ...")
-    business_latlong(city=args.city,
-                     n_lat=args.num_lat_grid, n_long=args.num_long_grid)
+    # business_latlong(city=args.city,
+    #                  n_lat=args.num_lat_grid, n_long=args.num_long_grid)
 
     print("[Geolocations] processing user-business adjacency matrix")
     user_business_adj(city=args.city,

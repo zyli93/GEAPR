@@ -26,7 +26,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 
 # from model import IRSModel
-from model_nocentroid import IRSModel
+# from model_nocentroid import IRSModel
+from model_nc_geo import IRSModel
 from train import train
 from dataloader import DataLoader
 from utils import check_flags, create_dirs
@@ -80,6 +81,10 @@ flags.DEFINE_float("afm_dropout_rate", 0.3, "The dropout rate for attentional FM
 flags.DEFINE_integer("afm_num_total_user_attr", None, "Number of total user attributes")
 flags.DEFINE_integer("afm_num_field", None, "Number of fields of user attributes")
 
+# Geolocation features
+flags.DEFINE_integer("num_lat_grid", 30, "Number of latitude grids.")
+flags.DEFINE_integer("num_long_grid", 30, "Number of longitude grids.")
+
 # Centroid
 flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
 flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
@@ -100,6 +105,7 @@ def main(args):
     print(FLAGS.ae_layers)
     print(FLAGS.trial_id)
     print(FLAGS.loss_type)
+    print(FLAGS.negative_sample_ratio)
     print(FLAGS.regularization_weight)
     print(FLAGS.embedding_dim)
     print(FLAGS.gat_nheads)
