@@ -39,11 +39,11 @@ CUDA_VISIBLE_DEVICES=1 python3 src/main_zyli.py \
 # learning rate: 0.0005
 
 CONFIGS = {
-    "ae_layers": [64],  # ["32", "48,32"],  # 2, other options: "48"
-    "negative_sample_ratio": [30, 45, 60, 75, 90],  # [1, 3, 5],  # 3
+    "ae_layers": ["64", "64,48"],  # ["32", "48,32"],  # 2, other options: "48"
+    "negative_sample_ratio": [30, 45, 60, 75, 90, 105, 120],  # [1, 3, 5],  # 3
     "loss_type": ["binary"],  # 2, binary is better than ranking
     "learning_rate": [0.0005, 0.001],  # [0.0001, 0.0003, 0.0005],  # 3, other options: 0.001
-    "regularization_weight": [0.2],  #[0.01, 0.05, 0.1],  # 3
+    "regularization_weight": [0.1, 0.2],  #[0.01, 0.05, 0.1],  # 3
     "embedding_dim": [64],  # 2
     "hid_rep_dim": [32],  # 1
     "tao": [0],  # 1
@@ -88,15 +88,15 @@ def fulfill_cmd(id, l):
 
 if __name__ == "__main__":
     str_fn = datetime.now().isoformat()[8:19]
-    make_dir("./grid_search/")
+    # make_dir("./grid_search/")
     with open("./grid_search/{}.settings".format(str_fn), "w") as fout:
         print("tid,nsr,lt,lr,rw,ed,hrd,tao,gfd,gcd,adr,ccw", file=fout)
         for i, param_list in enumerate(product(*PARAMS)):
             tid = i + TID_START
-            print(i)
+            print(tid)
             print(param_list)
             cmd_line = fulfill_cmd(tid, param_list)
             print(str(tid)+","+",".join([str(x) for x in param_list]),
                   file=fout)
-            os.system(cmd_line)
+            # os.system(cmd_line)
             # sys.exit()
