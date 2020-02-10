@@ -83,7 +83,7 @@ class IRSModel:
 
     def load_poi_inf_mat(self):
         """load poi influence matrix"""
-        print("\t[model] ")
+        print("\t[model] loading poi influence matrix")
         in_file = "./data/parse/yelp/citycluster/{}/business_influence_scores.csv".format(self.F.yelp_city)
         df = read_csv(in_file, header=None)
         assert df.shape[0] == self.F.num_total_item + 1
@@ -92,6 +92,7 @@ class IRSModel:
 
     def load_user_poi_adj_mat(self):
         """load user-poi adjacency matrix"""
+        print("\t[model] loading user-poi adjacency matrix")
         in_file = "./data/parse/yelp/citycluster/{}/city_user_business_adj_mat.npz".format(self.F.yelp_city)
         sp_mat = load_npz(in_file)  # coo
         sp_mat = normalize(sp_mat, norm="l1", axis=1)  # after normalize coo -> csr
@@ -158,6 +159,7 @@ class IRSModel:
             num_units=self.num_girds, var_scope="geo", zero_pad=True)  # (n+1,n_grid)
 
         ugeo_rep = tf.nn.embedding_lookup(user_geo_pref_emb_mat, self.batch_user)  # (b, n_grid)
+        ugeo_rep = tf.nn.relu(ugeo_rep)
         ip_geo_rep = tf.nn.embedding_lookup(self.poi_inf_mat, self.batch_pos)
         in_geo_rep = tf.nn.embedding_lookup(self.poi_inf_mat, self.batch_neg)
 
