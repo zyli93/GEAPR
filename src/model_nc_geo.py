@@ -159,7 +159,7 @@ class IRSModel:
             num_units=self.num_girds, var_scope="geo", zero_pad=True)  # (n+1,n_grid)
 
         ugeo_rep = tf.nn.embedding_lookup(user_geo_pref_emb_mat, self.batch_user)  # (b, n_grid)
-        ugeo_rep = tf.nn.relu(ugeo_rep)
+        # ugeo_rep = tf.nn.relu(ugeo_rep)  # commented for not helping
         ip_geo_rep = tf.nn.embedding_lookup(self.poi_inf_mat, self.batch_pos)
         in_geo_rep = tf.nn.embedding_lookup(self.poi_inf_mat, self.batch_neg)
 
@@ -194,10 +194,6 @@ class IRSModel:
         user_emb = tf.concat([user_emb, ugeo_rep], axis=1, name="geo_user_emb")
         neg_item_emb = tf.concat([neg_item_emb, in_geo_rep], axis=1, name="neg_geo_item_emb")
         pos_item_emb = tf.concat([pos_item_emb, ip_geo_rep], axis=1, name="pos_geo_item_emb")
-
-
-
-
 
 
 
