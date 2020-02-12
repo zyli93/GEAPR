@@ -138,9 +138,7 @@ if __name__ == "__main__":
         # example output: ./data/graph/yelp/lv/..."
         print("[Building graphs] processing {}-{} ...".format(args.dataset, args.yelp_city))
     else:
-        input_dir = PARSE_DIR + "ml/"
-        output_dir = GRAPH_DIR + "ml/" 
-        print("[Building graphs] processing {} ...".format(args.dataset))
+        raise NotImplementedError
 
     print("[Building graphs] output to {}".format(output_dir))
     make_dir_rec(output_dir)

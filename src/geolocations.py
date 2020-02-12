@@ -111,8 +111,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print("[Geolocations] processing business latitude & longitude ...")
-    # business_latlong(city=args.city,
-    #                  n_lat=args.num_lat_grid, n_long=args.num_long_grid)
+    business_latlong(city=args.city,
+                     n_lat=args.num_lat_grid, n_long=args.num_long_grid)
 
     print("[Geolocations] processing user-business adjacency matrix")
     user_business_adj(city=args.city,

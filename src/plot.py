@@ -108,7 +108,7 @@ def plot_friend_weights(data):
 
 
 def curve_performance(metric, city):
-    baseline_perf = "./baseline_perf/"
+    baseline_perf = "/Users/zyli/Research/interptable-recsys-friend-network/baseline_perf/"
     assert metric in ["prec", "recall", "map"]
     assert city in ["lv", "tor", "phx"]
     title = {
@@ -131,7 +131,7 @@ def curve_performance(metric, city):
     df = df.drop([3]).reset_index(drop=True)
 
 
-    models = ['USG', 'GeoSoCa', "MF", "WRMF", "GeoMF"]
+    models = ['USG', 'GeoSoCa', "MF", "WRMF", "GeoMF", "LORE", "GEARP"]
     # tor_df['model'] = models
 
     if city == "tor":
@@ -145,12 +145,13 @@ def curve_performance(metric, city):
 
     # ax = sns.lineplot(data=tor_df.iloc[:, 1:5])
     x_axis = list(range(10, 101, 10))
-    usg, = plt.plot(x_axis, sub_df.iloc[0, :], "--bo")
+    usg, = plt.plot(x_axis, sub_df.iloc[0, :], "--o", color="darkviolet")
     geosoca, = plt.plot(x_axis, sub_df.iloc[1, :], "--go")
     mf, = plt.plot(x_axis, sub_df.iloc[2, :], "--ro")
     wrmf, = plt.plot(x_axis, sub_df.iloc[3, :], "--co")
-    geomf, = plt.plot(x_axis, sub_df.iloc[4, :], "--o", color="skyblue")
-    # geapr, = plt.plot(x_axis, tor_df.iloc[5, :], "--yo")
+    geomf, = plt.plot(x_axis, sub_df.iloc[4, :], "--o", color="chocolate")
+    lore, = plt.plot(x_axis, sub_df.iloc[5, :], "--o", color="orange")
+    geapr, = plt.plot(x_axis, sub_df.iloc[6, :], "--o", color="dodgerblue")
 
 
     usg.set_label("USG")
@@ -158,15 +159,86 @@ def curve_performance(metric, city):
     mf.set_label("MF")
     wrmf.set_label("WRMF")
     geomf.set_label("GeoMF")
+    lore.set_label("LORE")
+    geapr.set_label("GEAPR")
 
-    plt.xticks(x_axis, fontsize=15)
-    plt.xlabel("k", fontsize=15)
-    plt.ylabel(title[metric], fontsize=15)
-    plt.legend(fontsize=10)
+    if metric == "prec":
+        loc = "upper right"
+    else:
+        loc = "upper left"
+
+
+    plt.xticks(x_axis, fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.xlabel("k", fontsize=20)
+    plt.ylabel(title[metric], fontsize=20)
+    plt.legend(fontsize=12, loc=loc)
 
     # plt.show()
-    make_dir("./baseline_perf/image/")
-    plt.savefig("./baseline_perf/image/{}_{}.pdf".format(city, metric),
+    make_dir("/Users/zyli/Research/interptable-recsys-friend-network/baseline_perf/image/")
+    plt.savefig("/Users/zyli/Research/interptable-recsys-friend-network/baseline_perf/image/{}_{}.pdf".format(city, metric),
+                format="pdf")
+    plt.clf()
+
+
+def curve_ablation(metric, city):
+    baseline_perf = "/Users/zyli/Research/interptable-recsys-friend-network/baseline_perf/"
+    assert metric in ["prec", "recall", "map"]
+    assert city in ["lv", "tor", "phx"]
+    title = {
+        "prec": "Precision",
+        "recall": "Recall",
+        "map": "MAP"
+    }
+
+    fname = baseline_perf + metric + "_abla.csv"
+    df = pd.read_csv(fname)
+
+    print(df.columns)
+
+    if city == "tor":
+        sub_df = df.iloc[1:, 1: 11]
+    elif city == "phx":
+        sub_df = df.iloc[1:, 11: 21]
+    else:
+        sub_df = df.iloc[1:, 21: 31]
+
+    sub_df.columns = [str(x) for x in range(10, 101, 10)]
+
+    # ax = sns.lineplot(data=tor_df.iloc[:, 1:5])
+    x_axis = list(range(10, 101, 10))
+    sc, = plt.plot(x_axis, sub_df.iloc[0, :], "--o", color="darkviolet")
+    ni, = plt.plot(x_axis, sub_df.iloc[1, :], "--go")
+    at, = plt.plot(x_axis, sub_df.iloc[2, :], "--ro")
+    geo, = plt.plot(x_axis, sub_df.iloc[3, :], "--co")
+    pa, = plt.plot(x_axis, sub_df.iloc[4, :], "--o", color="chocolate")
+    geapr, = plt.plot(x_axis, sub_df.iloc[5, :], "--o", color="dodgerblue")
+
+
+    sc.set_label("GEAPR-SC")
+    ni.set_label("GEAPR-NI")
+    at.set_label("GEAPR-AT")
+    geo.set_label("GEAPR-GEO")
+    pa.set_label("GEAPR-PA")
+    geapr.set_label("GEAPR")
+
+    if metric == "map":
+        loc = "lower right"
+    elif metric == "prec":
+        loc = "upper right"
+    else:
+        loc = "upper left"
+
+
+    plt.xticks(x_axis, fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.xlabel("k", fontsize=20)
+    plt.ylabel(title[metric], fontsize=20)
+    plt.legend(fontsize=12, loc=loc)
+
+    # plt.show()
+    make_dir("/Users/zyli/Research/interptable-recsys-friend-network/baseline_perf/abla/")
+    plt.savefig("/Users/zyli/Research/interptable-recsys-friend-network/baseline_perf/abla/{}_{}.pdf".format(city, metric),
                 format="pdf")
     plt.clf()
 
@@ -185,10 +257,13 @@ if __name__ == "__main__":
 
     # Plotting performance curves
     metrics = ["map", "prec", "recall"]
-    cities = ["lv", "tor", "phx"]
+    # cities = ["lv", "tor", "phx"]
+    cities = ["phx", "tor"]
     all_plots = product(metrics, cities)
     for m, c in all_plots:
+        print(m, c)
         curve_performance(m, c)
+        curve_ablation(m, c)
 
 
 """
