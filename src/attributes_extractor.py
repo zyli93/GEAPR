@@ -8,9 +8,6 @@ Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
         3. Only user self features and user loc features are used.
             Loc features are learned from business average.
         4. Business features are not used for this time.
-
-    TODO:
-        - user max/min lat/long not added yet
 """
 
 import sys

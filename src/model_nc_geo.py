@@ -142,16 +142,20 @@ class IRSModel:
             n_heads=self.F.gat_nheads,
             ft_drop=self.F.gat_ft_dropout, attn_drop=self.F.gat_coef_dropout)
 
+        self.output_dict['gat_attn'] = self.uf_attns
+
         # ===========================
         #      Attention FM
         # ===========================
-        uattr_rep, self.uattr_attns1, self.uattr_attns2 = attentional_fm(
+        uattr_rep, self.uattr_attns1, self.uattr_attns2, self.test = attentional_fm(
             var_scope="afm", input_features=self.batch_uattr, is_training=self.is_train,
             emb_dim=self.F.embedding_dim, feat_size=self.F.afm_num_total_user_attr+1,
             initializer=inilz, regularizer=reglr,
             use_dropout=self.F.afm_use_dropout, dropout_rate=self.F.afm_dropout_rate,
             hid_rep_dim=self.F.hid_rep_dim, attr_size=self.F.afm_num_field)
 
+        self.output_dict['afm_attn_order1'] = self.uattr_attns1
+        self.output_dict['afm_attn_order2'] = self.uattr_attns2
         # ==========================
         #    Geo preference
         # ==========================
@@ -163,6 +167,8 @@ class IRSModel:
         ip_geo_rep = tf.nn.embedding_lookup(self.poi_inf_mat, self.batch_pos)
         in_geo_rep = tf.nn.embedding_lookup(self.poi_inf_mat, self.batch_neg)
 
+        self.ugeo_pref_mat = user_geo_pref_emb_mat
+
         # ==========================
         #      Merging factors
         # ==========================
@@ -171,11 +177,7 @@ class IRSModel:
             usc_rep = tf.layers.dense(usc_rep, units=self.F.hid_rep_dim, activation=tf.nn.relu)
             uattr_rep = tf.layers.dense(uattr_rep, units=self.F.hid_rep_dim, activation=tf.nn.relu)
             module_fan_in = [uf_rep, usc_rep, uattr_rep]
-
-            # module_fan_in = [uf_rep]
-            # module_fan_in = [uattr_rep]
-            # module_fan_in = [usc_rep]
-            self.output_dict['module_fan_in'] = module_fan_in
+            # self.output_dict['module_fan_in'] = module_fan_in
             user_emb = tf.stack(values=module_fan_in, axis=1)  # (b,3,h)
             user_emb_attn = tf.layers.dense(user_emb, units=1, activation=tf.nn.relu,
                     use_bias=False, kernel_initializer=inilz)  # (b,3,1)
@@ -184,18 +186,11 @@ class IRSModel:
             user_emb = tf.squeeze(
                 tf.matmul(user_emb, user_emb_attn, transpose_a=True))  # (b,h)
 
-        """
-        user_emb - (b,d)
-        ugeo_rep - (b,ngrid)
-        
-        pos_item_emb - (b,d)
-        neg_item_emb - (b*nsr, d)
-        """
+            self.output_dict['feat_importance_attn'] = self.user_emb_agg_attn
+
         user_emb = tf.concat([user_emb, ugeo_rep], axis=1, name="geo_user_emb")
         neg_item_emb = tf.concat([neg_item_emb, in_geo_rep], axis=1, name="neg_geo_item_emb")
         pos_item_emb = tf.concat([pos_item_emb, ip_geo_rep], axis=1, name="pos_geo_item_emb")
-
-
 
         print(user_emb)
         print(neg_item_emb)
@@ -254,16 +249,8 @@ class IRSModel:
         else:
             raise ValueError("Specify loss type to be `ranking` or `binary`")
 
-        # loss = rank_loss +
-        #        [now disabled] ae_reconstruction +
-        #        centroid_correlation +
-        #        regularization
-
-        # ae_loss = self.F.ae_recon_loss_weight * ae_recons_loss
-        # ct_loss = self.F.ctrd_corr_weight * (user_ct_corr_cost + item_ct_corr_cost)
+        # loss = rank_loss + regularization
         rg_loss = tf.compat.v1.losses.get_regularization_loss()
-
-        # self.losses = [rank_loss, ct_loss, rg_loss]
         self.losses = [rank_loss, rg_loss]
         self.loss = tf.reduce_sum(self.losses)
 
@@ -272,11 +259,8 @@ class IRSModel:
         # ======================
 
         if not self.F.separate_loss:
-            self.optim_ops = self.optimizer.minimize(
-                self.loss, global_step=self.global_step)
+            self.optim_ops = self.optimizer.minimize(self.loss, global_step=self.global_step)
             self.optim_ops = [self.optim_ops]
-
-        # all_var_scopes = ["ae", "gat", "afm", ["attn_agg", "centroids"]]
 
         # set a few alias
         else:
@@ -294,15 +278,7 @@ class IRSModel:
         # ======================
         #   Generate score
         # ======================
-        """Generate score for testing time
-        input: user_ct_rep, item_emb_mat"""
 
-        # all_item_ct_rep, _ = centroid(
-        #     input_features=item_emb_mat, n_centroid=self.F.num_item_ctrd,
-        #     emb_size=self.F.hid_rep_dim, tao=self.F.tao, var_scope="centroids",
-        #     var_name="item_centroids", activation=self.F.ctrd_activation,
-        #     regularizer=reglr)  # (n,h)
-
+        # Generate score for testing time. Input: user_ct_rep, item_emb_mat
         all_item_rep = tf.concat([item_emb_mat, self.poi_inf_mat], axis=1)
-
         self.test_scores = tf.matmul(user_emb, all_item_rep, transpose_b=True)  # (b,n)

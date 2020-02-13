@@ -42,7 +42,8 @@ def make_dir_rec(path):
 
 def check_flags(f):
     """check validity of a few flag options and parse layers"""
-    assert f.dataset in ["ml", "yelp"], "`dataset` should be `ml` or `yelp`"
+    assert f.dataset in ["ml", "yelp"], "`dataset` should be `ml` or `yelp`."
+    assert f.task in ['perf', 'inter'], "`task` should be `perf` or `inter`."
     # assert f.corr_metric in ["cos", "log"], "`corr_metric` should be `cos` or `log`"
     # assert f.ctrd_act_func in ACT_FUNC, "`ctrd_act_func` should be `tanh`, `relu`, and `lrelu`"
     f.ae_layers = [int(x) for x in f.ae_layers]

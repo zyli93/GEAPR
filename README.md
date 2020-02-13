@@ -6,14 +6,17 @@ There's nothing in this one now.
 
 ## TODO
 1. `src/build_graphs.py` has been changed a lot. Need to filter out unused functions.
-2. tune hyperparameters from `src/build_graphs.py`: `rwr_order` and `rwr_constant`.
-3. `src/main_zyli.py` handle `TODO`.
-4. Now that `prep_yelp.py` has been changed, redo the doc of it.
-5. Now that `attributes_extractor.py` has been changed, redo the doc of it.
-6. Fix all TODO's in `model.py` and `training.py`.
-7. Add more features on user from business 
-8. 
-
+2. Remove all unused files only keep the model-related files.
+3. Polish the README to make it reproducible.
+4. Polish the grid search file
+5. Reorganize the github repo
+6. Add figures to the REPO
+7. Delete unused branches in the source code
+8. Add end-to-end instruction from downloading dataset to fetch results
+9. Remove extract printing except for the results
+10. Improve the starting of the program and let it print parameter settings
+11. Remove unused arguments in the `main_zyli.py` and also change the name of this `main_zyli.py`
+12. Fix all assert with a string of error message
 
 ## Notes
 1. `src/build_graphes.py.old` is a file backuped on Nov.24.

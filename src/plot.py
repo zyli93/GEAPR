@@ -10,8 +10,6 @@ import pandas as pd
 from utils import make_dir
 from itertools import product
 
-INPUT_DIR = ""  # TODO
-
 sns.set(
     context="paper",
     style="whitegrid",

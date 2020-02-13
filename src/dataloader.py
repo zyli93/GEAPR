@@ -57,9 +57,6 @@ class DataLoader:
             self.usc_graph = load_npz(graph_dir + "uf_sc_graph.npz")
             # self.uf_dict = load_pkl(city_dir + "city_user_friend.pkl")
 
-            # todo: uncomment me below
-            # self.ub_graph = load_npz(city_dir + "city_user_business_adj_mat.npz")
-
             print("[Data loader] loading train pos, train neg, and test instances.")
             self.train_pos = pd.read_csv(train_test_dir + "train_pos.csv").values
 
@@ -141,8 +138,7 @@ class DataLoader:
 
     def get_item_attributes(self, item_array):
         """get the item attributes matrixs.
-
-        TODO: Will add item related features in later versions.
+        Will add item related features in later versions
 
         [Not used]
 

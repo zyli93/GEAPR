@@ -141,10 +141,12 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
 
         attn_relu = tf.reduce_sum(
             tf.multiply(attn_q2, tf.nn.relu(attn_mul + attn_b2)), axis=2, keepdims=True)
+        print(attn_relu)
         # after relu/multiply: b*(k*(k-1)/2)*h;
         # after reduce_sum + keepdims: b*(k*(k-1)/2)*1
 
-        attn_out2 = tf.nn.softmax(attn_relu)  # b*(k*(k-1)*1
+        attn_out2 = tf.nn.softmax(attn_relu, axis=1)  # b*(k*(k-1)*1
+        test = attn_out2
 
         # just added relu Jan30
         afm2 = tf.reduce_sum(
@@ -164,7 +166,7 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
             print(use_dropout, dropout_rate)
             afm = tf.layers.dropout(afm, dropout_rate, training=is_training)
 
-        return afm, attn_out1, attn_out2
+        return afm, attn_out1, attn_out2, test
 
 
 def gatnet(var_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,

@@ -124,7 +124,6 @@ class IRSModel:
         # ==========================
         #      User embedding
         # ==========================
-        # TODO: normalization?
         with tf.compat.v1.variable_scope("attn_agg"):
             module_fan_in = [uf_rep, usc_rep, uattr_rep]
             # module_fan_in = [uf_rep]

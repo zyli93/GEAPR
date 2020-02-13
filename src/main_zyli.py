@@ -94,6 +94,9 @@ flags.DEFINE_string("ctrd_activation", None, "Centroid activation function")
 # Metrics
 flags.DEFINE_list("candidate_k", None, "Evaluation Prec@k, Recall@k, MAP@k and NDCG@k")
 
+# Deliverable
+flags.DEFINE_string("task", "performance", "Task to run: `inter` or `perf`.")
+
 
 FLAGS = flags.FLAGS
 
