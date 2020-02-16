@@ -8,6 +8,7 @@
 
 # Dataset files
 data/
+unreleased/
 yelp_dataset.tar
 
 # Byte-compiled / optimized / DLL files

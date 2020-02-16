@@ -173,7 +173,7 @@ def curve_performance(metric, city):
     plt.legend(fontsize=12, loc=loc)
 
     # plt.show()
-    make_dir("/Users/zyli/Research/interptable-recsys-friend-network/baseline_perf/image/")
+    make_dir("/unreleased/baseline_perf/image/")
     plt.savefig("/Users/zyli/Research/interptable-recsys-friend-network/baseline_perf/image/{}_{}.pdf".format(city, metric),
                 format="pdf")
     plt.clf()
@@ -235,7 +235,7 @@ def curve_ablation(metric, city):
     plt.legend(fontsize=12, loc=loc)
 
     # plt.show()
-    make_dir("/Users/zyli/Research/interptable-recsys-friend-network/baseline_perf/abla/")
+    make_dir("/unreleased/baseline_perf/abla/")
     plt.savefig("/Users/zyli/Research/interptable-recsys-friend-network/baseline_perf/abla/{}_{}.pdf".format(city, metric),
                 format="pdf")
     plt.clf()
