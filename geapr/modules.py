@@ -27,7 +27,6 @@ def autoencoder(var_scope, input_features, layers, regularizer=None, initializer
 
     with tf.compat.v1.variable_scope(var_scope):
         features = input_features
-        restore_dim = int(features.shape[1])
 
         # encoder
         for i in range(len(layers)):
@@ -38,28 +37,6 @@ def autoencoder(var_scope, input_features, layers, regularizer=None, initializer
 
         # encoded hidden representation
         hidden_feature = features  # (b, rep_dim)
-
-        """
-        # decoder
-        rev_layers = layers[::-1]  # [out, h_dim_k, ..., h_dim_1]
-        for i in range(1, len(rev_layers)):
-            features = tf.layers.dense(inputs=features, units=rev_layers[i],
-                activation=tf.nn.relu, use_bias=True,
-                kernel_regularizer=regularizer, kernel_initializer=initializer,
-                bias_regularizer=regularizer, name="usc_dec_{}".format(i))
-
-        # last layer to reconstruct
-        restore = tf.layers.dense(inputs=features, units=restore_dim,
-            activation=None, use_bias=True, kernel_regularizer=regularizer, 
-            kernel_initializer=initializer, bias_regularizer=regularizer, 
-            name="usc_reconstruct_layer")
-
-        # reconstruction loss
-        recon_loss = tf.nn.l2_loss(input_features - restore,
-            name="recons_loss_{}".format(var_scope))
-
-        return hidden_feature, recon_loss
-        """
 
         return hidden_feature, tf.constant(0., dtype=tf.float32)
 
@@ -130,7 +107,6 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
                     tf.multiply(uattr_emb[:, i, :], uattr_emb[:, j, :]))
 
         element_wise_prod = tf.stack(element_wise_prod_list, axis=1)  # (b,(k*(k-1)/2,d)
-        # interactions = tf.reduce_sum(element_wise_prod, axis=2)  # b * (k*(k-1)/2)
         num_interactions = attr_size * (attr_size - 1) // 2  # aka: k *(k-1)/2
 
         # attentional part
@@ -141,7 +117,6 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
 
         attn_relu = tf.reduce_sum(
             tf.multiply(attn_q2, tf.nn.relu(attn_mul + attn_b2)), axis=2, keepdims=True)
-        print(attn_relu)
         # after relu/multiply: b*(k*(k-1)/2)*h;
         # after reduce_sum + keepdims: b*(k*(k-1)/2)*1
 
@@ -153,12 +128,9 @@ def attentional_fm(var_scope, input_features, emb_dim, hid_rep_dim, feat_size, a
             tf.multiply(attn_out2, element_wise_prod), axis=1, name="afm")
         # afm2: b*(k*(k-1))*d => b*d
 
-        print(afm2.shape)
         attn_out2 = tf.squeeze(attn_out2, name="attention_output")
 
         afm = tf.nn.bias_add(afm1 + afm2, attn_b)  # (b*d)
-        print(afm.shape)
-        print(hid_rep_dim)
         afm = tf.layers.dense(afm, hid_rep_dim, activation=tf.nn.relu,
                               use_bias=False)  # (b*h)
 
@@ -218,9 +190,6 @@ def gatnet(var_scope, embedding_mat, adj_mat, input_indices, hid_rep_dim,
             attns.append(attn)
 
         h_1 = tf.concat(hidden_features, axis=-1)  # [n_head*(b, oz)] => (b, oz*n_head)
-        # logits = tf.layers.conv1d(h_1, hid_rep_dim, 1, use_bias=False)  # (b, oz)
-
-        # just added relu Jan 30
         logits = tf.layers.dense(h_1, hid_rep_dim, use_bias=False,
                                  activation=tf.nn.relu)
 
@@ -264,15 +233,12 @@ def gat_attn_head(input_indices, emb_lookup, output_size, bias_mat, activation,
                 emb_lookup, ft_drop, training=is_training)
 
         # W*(whole-emb_mat), h->Wh, from R^f to R^F', (n, oz)
-        # hid_emb_lookup = tf.layers.conv1d(emb_lookup, output_size, 1, use_bias=False)
         hid_emb_lookup = tf.compat.v1.layers.dense(emb_lookup, output_size, use_bias=False)
 
         # the batch of Wh's of the users, (b, oz)
         b_hid_emb = tf.nn.embedding_lookup(hid_emb_lookup, input_indices)
 
         # simplest self-attention possible, concatenation implementiation
-        # f_1 = tf.layers.conv1d(b_hid_emb, 1, 1)  # (b, 1)
-        # f_2 = tf.layers.conv1d(hid_emb_lookup, 1, 1)  # (n, 1)
         f_1 = tf.layers.dense(b_hid_emb, 1)  # (b, 1)
         f_2 = tf.layers.dense(hid_emb_lookup, 1)  # (n, 1)
         logits = f_1 + tf.transpose(f_2)  # (b, n)
@@ -313,70 +279,3 @@ def get_embeddings(var_scope, vocab_size, num_units, zero_pad=False):
             embeddings = tf.concat((tf.zeros(shape=[1, num_units]),
                 embeddings[1:, :]), 0)
         return embeddings
-
-
-def centroid(var_scope, var_name,  input_features, n_centroid, emb_size, tao,
-             regularizer=None, activation=None):
-    """Model the centroids for users/items
-
-    Centroids mean interests for users and categories for items
-
-    Notations:
-        d - embedding_size
-        b - batch_size
-        c - centroid_size
-
-    Args:
-        var_scope - the variable scope of the current component
-        var_name - the centroid tensor variable name
-        input_features - the hidden representation of mini-batch matrix, (b,d)
-        n_centroid - number of centroids/interests, (c,d)
-        emb_size - the embedding size
-        tao - [float] the temperature hyper-parameter
-        activation - [string] of activation functions
-
-    Returns:
-        output - (b, d)
-    """
-    with tf.compat.v1.variable_scope(var_scope, reuse=tf.compat.v1.AUTO_REUSE):
-
-        # create centroids/interests variables
-        centroids = tf.compat.v1.get_variable(shape=[n_centroid, emb_size], dtype=tf.float32,
-                                              name=var_name, regularizer=regularizer)  # (c,d)
-
-        # compute the logits
-        ft_mul = tf.matmul(input_features, centroids, transpose_b=True)  # (b,c)
-
-        # if `activation` given, pass through activation func
-        if activation:
-            activation_func = get_activation_func(activation)
-            ft_mul = activation_func(ft_mul)
-
-        # apply temperature and then softmax
-        logits = tf.nn.softmax(ft_mul / tao, axis=-1)  # (b,c)
-
-        # attentional pooling
-        output = tf.matmul(logits, centroids)  # (b, d)
-
-        return output, logits
-
-
-def centroid_corr(centroid_mat, var_scope):
-    """Compute centroid correlations to minimize
-
-    Args:
-        var_scope - name scope
-        centroid matrix - the entire matrix of centroids
-
-    Returns:
-        the correlations of centroid
-    """
-    with tf.compat.v1.variable_scope(var_scope):
-        numerator = tf.square(tf.matmul(centroid_mat, centroid_mat, transpose_b=True))  # (c,c)
-        row_sqr_sum = tf.reduce_sum(tf.square(centroid_mat), axis=1, keepdims=True)  # (c,1)
-        rss_sqrt = tf.sqrt(row_sqr_sum)  # (c, 1) element-wise sqrt
-        denominator = tf.matmul(rss_sqrt, rss_sqrt, transpose_b=True)  # (c,c)
-        corr_cost = tf.truediv(numerator, denominator)
-
-        return tf.reduce_sum(corr_cost)
-

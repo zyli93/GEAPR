@@ -39,7 +39,6 @@ flags = tf.app.flags
 flags.DEFINE_string('trial_id', '001', 'The ID of the current run.')
 flags.DEFINE_integer('epoch', 300, 'Number of Epochs.')
 flags.DEFINE_integer('batch_size', 64, 'Number of training instance per batch.')
-flags.DEFINE_string('dataset', 'yelp', 'Input dataset name')
 flags.DEFINE_string('yelp_city', 'lv', 'City data subset of yelp')
 flags.DEFINE_boolean("save_model", False, "Whether to save the model")
 flags.DEFINE_integer('save_per_iter', 1000, 'Number of iterations per save.')
@@ -63,7 +62,6 @@ flags.DEFINE_integer("num_total_user", None, "Number of total users.")
 # Auto Encoder
 flags.DEFINE_list('ae_layers', None, 
     "[comma sep. list] Structural context AE layers. No RAW dim, no MID dim.")
-flags.DEFINE_float("ae_recon_loss_weight", 0.1, "AutoEncoder reconstruction loss")
 
 # Graph Attention Network
 flags.DEFINE_integer('gat_nheads', 2, "Number of heads in GAT")
@@ -82,9 +80,6 @@ flags.DEFINE_integer("num_long_grid", 30, "Number of longitude grids.")
 
 # Metrics
 flags.DEFINE_list("candidate_k", None, "Evaluation Prec@k, Recall@k, MAP@k and NDCG@k")
-
-# Deliverable
-flags.DEFINE_string("task", "performance", "Task to run: `inter` or `perf`.")
 
 FLAGS = flags.FLAGS
 

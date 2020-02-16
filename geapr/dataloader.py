@@ -42,36 +42,26 @@ class DataLoader:
         """
         self.f = flags
         self.nsr = self.f.negative_sample_ratio
-        self.valid_set = self.f.valid_set_size
 
-        if self.f.dataset == "yelp":
-            self.item_col_name = "business"
-            # interaction_dir = YELP_INTERACTION + self.f.yelp_city + "/"
-            train_test_dir = YELP_TRAINTEST + self.f.yelp_city + "/"
-            city_dir = YELP_CITY + self.f.yelp_city + "/"
-            graph_dir = YELP_GRAPH + self.f.yelp_city + "/"
+        self.item_col_name = "business"
+        train_test_dir = YELP_TRAINTEST + self.f.yelp_city + "/"
+        city_dir = YELP_CITY + self.f.yelp_city + "/"
+        graph_dir = YELP_GRAPH + self.f.yelp_city + "/"
 
-            print("[Data loader] loading friendship and strc-ctx graphs",
-                  "and user-friendship dict")
-            self.uf_graph = load_npz(graph_dir + "uf_graph.npz")
-            self.usc_graph = load_npz(graph_dir + "uf_sc_graph.npz")
-            # self.uf_dict = load_pkl(city_dir + "city_user_friend.pkl")
+        print("[Data loader] loading friendship and strc-ctx graphs",
+              "and user-friendship dict")
+        self.uf_graph = load_npz(graph_dir + "uf_graph.npz")
+        self.usc_graph = load_npz(graph_dir + "uf_sc_graph.npz")
 
-            print("[Data loader] loading train pos, train neg, and test instances.")
-            self.train_pos = pd.read_csv(train_test_dir + "train_pos.csv").values
+        print("[Data loader] loading train pos, train neg, and test instances.")
+        self.train_pos = pd.read_csv(train_test_dir + "train_pos.csv").values
 
-            self.train_neg = load_pkl(train_test_dir + "train_neg.pkl")
-            self.test_instances = load_pkl(train_test_dir + "test_instances.pkl")
+        self.train_neg = load_pkl(train_test_dir + "train_neg.pkl")
+        self.test_instances = load_pkl(train_test_dir + "test_instances.pkl")
 
-            print("[Data loader] loading user/item attributes")
-            # self.user_attr = pd.read_csv(city_dir + "processed_city_user_profile.csv")
-            # self.item_attr = pd.read_csv(city_dir + "processed_city_business_profile.csv")
-            self.user_attr = pd.read_csv(
-                city_dir+"processed_city_user_profile_dist.csv").values
-
-        else:
-            self.item_col_name = None
-            raise NotImplementedError("[DataLoader] Now only support yelp")
+        print("[Data loader] loading user/item attributes")
+        self.user_attr = pd.read_csv(
+            city_dir+"processed_city_user_profile_dist.csv").values
 
         self.set_to_dataset = {
             "train": self.train_pos,
@@ -122,8 +112,6 @@ class DataLoader:
         """
         uf_mat = self.uf_graph[user_array]
         usc_mat = self.usc_graph[user_array]
-        # uf_nbr = {k: self.uf_dict[k] for k in user_array}
-        # return uf_mat, usc_mat, uf_nbr
         return uf_mat, usc_mat
 
     def get_user_attributes(self, user_array):
@@ -136,19 +124,6 @@ class DataLoader:
         """
         return self.user_attr[user_array]
 
-    def get_item_attributes(self, item_array):
-        """get the item attributes matrixs.
-        Will add item related features in later versions
-
-        [Not used]
-
-        Args:
-            item_array - numpy array of items to featch data for
-        Returns:
-            item attribute submatrix
-        """
-        raise NotImplementedError
-
     def get_dataset_size(self):
         """get the size of datasets
 
@@ -157,7 +132,7 @@ class DataLoader:
         """
         return len(self.train_pos)
 
-    def get_test_valid_dataset(self, is_test=False):
+    def get_test_valid_dataset(self):
         """get test or valid dataset
 
         Args:
@@ -167,19 +142,7 @@ class DataLoader:
             user_id_list - [list of int] the list of user id used for testing/validation
             ground_truth_list - [list of list] the ground truth
         """
-        assert self.valid_set < len(self.test_instances), "TOO Big valid set!"
-        if not is_test:
-            test_uid_set = list(self.test_instances.keys())
-            user_id_list = np.random.choice(test_uid_set, self.valid_set,
-                replace=False)
-        else:
-            user_id_list = list(self.test_instances.keys())
-
+        user_id_list = list(self.test_instances.keys())
         ground_truth_list = [self.test_instances[x].tolist() for x in user_id_list]
 
         return user_id_list, ground_truth_list
-
-    def load_business_influence(self):
-        """load business influence matrix"""
-        city_dir = YELP_CITY + self.f.yelp_city + "/"
-        mode
