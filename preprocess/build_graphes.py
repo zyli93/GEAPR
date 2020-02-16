@@ -7,8 +7,6 @@
         - user friendship graph (uf_graph)
 """
 
-import os
-import sys
 from scipy.sparse import *
 from sklearn.preprocessing import normalize
 import numpy as np
@@ -19,7 +17,7 @@ try:
 except:
     import pickle
 
-from utils import load_pkl, dump_pkl, make_dir_rec
+from utils import load_pkl, make_dir_rec
 
 GRAPH_DIR = "./data/graph/"
 PARSE_DIR = "./data/parse/"

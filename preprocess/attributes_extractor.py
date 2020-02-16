@@ -161,12 +161,6 @@ def discretize_field_attr(city):
         elif col in col_configs['NUMERICAL']:
             num_bkt = col_configs.getint("NUMERICAL", col)
             max_val, min_val = df[col].max(), df[col].min()
-            # # Say goodbye to this stupid way of implementation
-            # gap = (max_val - min_val) / num_bkt
-            # distinct_df_col_names.append(col+"_c_dist")
-            # distinct_df_cols.append(
-            #     df[col].apply(lambda x: int(((x-min_val) // gap + distinct_ft_count))))
-            # df.assign(col + "_dist", lambda x: int((x // gap + distinct_ft_count)))
 
             distinct_df_col_names.append(col + "_c_dist")
             distinct_df_cols.append(

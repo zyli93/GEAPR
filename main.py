@@ -25,11 +25,9 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 
-# from model import IRSModel
-# from model_nocentroid import IRSModel
-from model_nc_geo import IRSModel
-from train import train
-from dataloader import DataLoader
+from geapr.model import IRSModel
+from geapr.train import train
+from geapr.dataloader import DataLoader
 from utils import check_flags, create_dirs
 
 # 2 = INFO and WARNING messages are not printed

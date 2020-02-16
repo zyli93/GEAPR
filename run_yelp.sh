@@ -24,7 +24,7 @@
 #       3 - tao [0.5]
 # 
 
-CUDA_VISIBLE_DEVICES=1 python3 src/main_zyli.py \
+CUDA_VISIBLE_DEVICES=1 python3 main.py \
     --noseparate_loss \
     --ae_layers 64,48 \
     --is_training \

@@ -3,7 +3,6 @@
     @author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 """
 
-from tqdm import tqdm
 import numpy as np
 import tensorflow as tf
 from utils import build_msg, make_dir
