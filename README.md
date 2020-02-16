@@ -15,6 +15,10 @@ GEAPR can achieve a great performance shown below.
 
 ![Performance](figures/perf.png)
 
+We will show how to process the raw data, run GEAPR, and get results.
+Please let us know through EMAIL for any questions! 
+Please cite our paper if you used the code (after publish).
+
 
 ## Prepare Data
 
@@ -172,9 +176,17 @@ Please run this command are an example.
 ```shell script
 $ bash run_yelp.sh
 ```
-Please step into that for the settings.
+Please step into that for the different settings of the parameters.
 
 ### 2. Performance
+There are two ways of checking the performance. 
+
+1. Check out the standard the output; 
+2. Check out `path/to/geapr/output/performance/[trail_id].perf`. It has all the training and testing logs.
+
+### 3. Interpretations
+You will need to manually fetch the `output_dict` from the computational graph.
+You can find an example in Line 84 of `./geapr/train.py`.
 
 
 ## Appendix
