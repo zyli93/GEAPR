@@ -18,7 +18,14 @@ Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 ## What is GEAPR?
 GEAPR stands for "**G**raph **E**nhanced **A**ttention network for explainable **P**OI **R**ecommendation".
 The major architecture of GEAPR is the following:
-![GEAPR Architecture](./images/pipeline.pdf)
+![GEAPR Architecture](./images/pipeline.png)
+
+In short, it uses the four different modules to analyze four motivating factors of a POI visit, 
+namely structural context, neighbor impact, user attribute, and geolocation.
+
+GEAPR can achieve a great performance shown below.
+![Phx-Precision](./images/phx_prec.png =100x100 "Precision@k on Phoenix Dataset") ![Phx-Recall](./images/phx_recall.png "Recall@k on Phoenix Dataset")
+![Tor-Precision](./images/tor_prec.png "Precision@k on Toronto Dataset") ![Tor-Recall](./images/tor_recall.png "Recall@k on Toronto Dataset")
 
 
 ## Download raw dataset
