@@ -37,7 +37,6 @@ flags = tf.app.flags
 
 # Run time
 flags.DEFINE_string('trial_id', '001', 'The ID of the current run.')
-# flags.DEFINE_boolean("is_training", True, "The flag to run training or evaluation.")
 flags.DEFINE_integer('epoch', 300, 'Number of Epochs.')
 flags.DEFINE_integer('batch_size', 64, 'Number of training instance per batch.')
 flags.DEFINE_string('dataset', 'yelp', 'Input dataset name')
@@ -46,7 +45,6 @@ flags.DEFINE_boolean("save_model", False, "Whether to save the model")
 flags.DEFINE_integer('save_per_iter', 1000, 'Number of iterations per save.')
 flags.DEFINE_integer('log_per_iter', 200, "Number of iterations per log.")
 flags.DEFINE_integer('negative_sample_ratio', 3, "Negative sample ratio")
-flags.DEFINE_integer('valid_set_size', 64, "Validation set size")
 flags.DEFINE_string("loss_type", "ranking", "Choose from `binary` and `ranking`")
 flags.DEFINE_boolean("separate_loss", False, "Whether to separate loss terms!")
 
@@ -58,7 +56,6 @@ flags.DEFINE_integer('random_seed', 723, 'Random Seed.')
 # Hyperparam - Model
 flags.DEFINE_integer('embedding_dim', 64, 'Hidden embedding size.')
 flags.DEFINE_integer('hid_rep_dim', 32, 'Internal representation dimensions.')
-flags.DEFINE_float("tao", 0.2, "Temperature constant!")
 flags.DEFINE_integer("num_total_item", None, "Number of total items.")
 flags.DEFINE_integer("num_total_user", None, "Number of total users.")
 
@@ -83,18 +80,11 @@ flags.DEFINE_integer("afm_num_field", None, "Number of fields of user attributes
 flags.DEFINE_integer("num_lat_grid", 30, "Number of latitude grids.")
 flags.DEFINE_integer("num_long_grid", 30, "Number of longitude grids.")
 
-# Centroid
-flags.DEFINE_integer("num_user_ctrd", 32, "Number of centroids for users.")
-flags.DEFINE_integer("num_item_ctrd", 64, "Number of interest for items.")
-flags.DEFINE_float("ctrd_corr_weight", 0.1, "Correlation cost weight")
-flags.DEFINE_string("ctrd_activation", None, "Centroid activation function")
-
 # Metrics
 flags.DEFINE_list("candidate_k", None, "Evaluation Prec@k, Recall@k, MAP@k and NDCG@k")
 
 # Deliverable
 flags.DEFINE_string("task", "performance", "Task to run: `inter` or `perf`.")
-
 
 FLAGS = flags.FLAGS
 

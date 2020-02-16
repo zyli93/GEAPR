@@ -7,6 +7,8 @@
         - user friendship graph (uf_graph)
 """
 
+import sys
+sys.path.append(".")
 from scipy.sparse import *
 from sklearn.preprocessing import normalize
 import numpy as np
@@ -115,8 +117,7 @@ def load_user_friend(dir_):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", help="The dataset to work on. For yelp, use `yelp-lv`")
-    parser.add_argument("--yelp_city", help="ABBRVs. of yelp cities. Only useful when --dataset=yelp")
+    parser.add_argument("--yelp_city", help="ABBRVs. of yelp cities.")
     parser.add_argument("--rwr_order", type=int,
             help="order of random walk with restart.", default=3)
     parser.add_argument("--rwr_constant", type=float,
@@ -127,21 +128,15 @@ if __name__ == "__main__":
 
     # check parameters
     assert args.rwr_constant > 0 and args.rwr_constant < 1, "invalid rwr_constant value"
-    assert args.dataset in ["yelp", "movielens"], "invalid `dataset` value, should be yelp or movielens"
     assert args.yelp_city in ["lv", "tor", "phx"], "invalid `yelp_city` value, should be `lv`, `tor`, or `phx`"
 
-    if args.dataset == "yelp":
-        input_dir = PARSE_DIR + "yelp/citycluster/" + args.yelp_city + "/"
-        output_dir = GRAPH_DIR + "yelp/" + args.yelp_city + "/"
-        # example output: ./data/graph/yelp/lv/..."
-        print("[Building graphs] processing {}-{} ...".format(args.dataset, args.yelp_city))
-    else:
-        raise NotImplementedError
+    input_dir = PARSE_DIR + "yelp/citycluster/" + args.yelp_city + "/"
+    output_dir = GRAPH_DIR + "yelp/" + args.yelp_city + "/"
+    # example output: ./data/graph/yelp/lv/..."
+    print("[Building graphs] processing {}-{} ...".format(args.dataset, args.yelp_city))
 
     print("[Building graphs] output to {}".format(output_dir))
     make_dir_rec(output_dir)
-
-    # NOTES: not building the item side thing for now
 
     # load user friend matrix
     print("\t[Building graphs] loading user friendship")

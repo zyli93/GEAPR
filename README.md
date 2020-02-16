@@ -1,12 +1,9 @@
-# Interpretable Recommender System with Frienship Networks
+# GEAPR: 
 
 Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
-There's nothing in this one now.
 
 ## TODO
-1. `src/build_graphs.py` has been changed a lot. Need to filter out unused functions.
-2. Remove all unused files only keep the model-related files.
 3. Polish the README to make it reproducible.
 4. Polish the grid search file
 5. Reorganize the github repo
@@ -18,99 +15,94 @@ There's nothing in this one now.
 11. Remove unused arguments in the `main_zyli.py` and also change the name of this `main_zyli.py`
 12. Fix all assert with a string of error message
 
-## Notes
-1. `src/build_graphes.py.old` is a file backuped on Nov.24.
-2. users average latitude and longitude should be taken from training data, 
-    but now I am taking from all data. need to change it later.
-3. To disable the wordy `Warnings` of TensorFlow please add the following:
-```python
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # << this line disables the warnings
-import tensorflow as tf
-```
-The deprecation warnings are not removable.
+## What is GEAPR?
+GEAPR stands for "**G**raph **E**nhanced **A**ttention network for explainable **P**OI **R**ecommendation".
+The major architecture of GEAPR is the following:
+![GEAPR Architecture](./images/pipeline.pdf)
+
 
 ## Download raw dataset
+Please download the data set from [here](https://www.yelp.com/dataset).
+After download, untar it into `./data/raw/yelp` by the steps below, and ready to the next step!
+```shell script
+$ cd path/to/GEAPR
+$ mkdir -p data/raw/yelp/
+$ tar -vxf path/to/yelp_dataset.tar -C data/raw/yelp
+```
 
-## Preprocess raw dataset
+## Preprocessing
 
-### Yelp dataset
+#### 0. All in one script
+Run this script to avoid all the following steps.
+```shell script
+$ bash preprocess_datasets.sh
+```
 
-#### 1. Run preprocessing on yelp dataset
+#### 1. Parse the raw datasets
 ```bash
-$ python src/prep_yelp.py preprocess
+$ python preprocess/prep_yelp.py preprocess
 ```
 
 #### 2. Cluster the data records by cities
 ```bash
-$ python src/prep_yelp.py city_cluster --business_min_count [bmc] --user_min_count [umc]
+$ python preprocess/prep_yelp.py city_cluster --business_min_count [bmc] --user_min_count [umc]
 ```
 
 For example, if both minimum business count and minimum user count are 10, then we have:
 ```bash
-$ python src/prep_yelp.py city_cluster --business_min_count 10 --user_min_count 10
+$ python preprocess/prep_yelp.py city_cluster --business_min_count 10 --user_min_count 10
 ```
-
 Running this step will generate the statistics of datasets. We summarize them as the following.
-```text
-City    B-mc    U-mc    B-count    U-count
-lv      10      10      32901      17146
-tor     10      10      9360       8942
-phx     10      10      10682      9440
-```
 `lv` stands for Las Vegas, `tor` stands for Toronto, and `phx` stands for Pheonix.
 
 #### 3. Generate train, test, and validation dataset
 ```bash
-$ python src/prep_yelp.py gen_data --train_test_ratio=[train:test]
+$ python preprocess/prep_yelp.py gen_data --train_test_ratio=[train:test]
 ```
 For example, if we choose to use train:test as 9:1, then we should use:
 ```bash
-$ python src/prep_yelp.py gen_data --train_test_ratio=9:1
+$ python preprocess/prep_yelp.py gen_data --train_test_ratio=9:1
 ```
-
 The statistics
 ```text
-City    #.user  #.business  #.attr   
-lv      34289   17395       80       
-phx
-tor
+City    #.user  #.POI  #.attr   
+phx     11289   9633   140
+tor     9582    9102   140
 ```
-
-For `lv`, train/test business do have over 17224, 13206, 13035 (overlap).
 
 #### 4. Find the results
 In `./data/parse/yelp`, you would be able to see three folders:
-* `preprocess`: undivided features of preprocessing.
+* `train_test`: the training set, testing set, and the negative sampling set.
 * `citycluster`: all information clustered by cities (`lv`, `tor`, or `phx`)
-* `interactions`: user-business interacton and synthesized negative samples divided into `training`,
-    `testing`, and `validation`.
-
+* `preprocess`: undivided features of preprocessing.
+* `interactions`: user-POI interactons 
 
 Among them, `citycluster` and `interactions` will be used in the future procedures.
 
 ## Feature Engineering 
+Want to run? Not done yet, we need to run some code to extract the features for user and POI such as attributes and POI locations.
 Based on the preprocessed features, we further create adjacency matrix features 
-and user/item attribute features. Both of them will be fed into our model.
+and user/POI attribute features. Both of them will be fed into our model.
 
-### 1. Building Structural Graphes
+#### 1. Building Structural Graphes
 
 We are using structural context graphs for later computations. 
 Structural context graphs can be generated beforehand.
 Here's an example to generate neighbor graphs and structural context graphs:
 ```bash
-$ python src/build_graphs.py --dataset=yelp --yelp_city=lv --rwr_order=3 --rwr_constant 0.05 --use_sparse_mat=True
+$ python preprocess/build_graphs.py --yelp_city=lv --rwr_order=3 --rwr_constant 0.05 --use_sparse_mat=True
 ```
 Here are two tunable hyperparameters:
 * `rwr_order`: choose between 2 and 3, number > 3 will generate a much denser graph. Defult is 3.
 * `rwr_constant`: rate of re-starting. Default is 0.05.
+* `use_sparse`: whether or not to use `scipy.sparse` matrix to save data. Well, the option of `False` has not been tested. Please stick to `True`.
 
 
-### 2. Extracting user and item features
+#### 2. Extracting user and item features
 
 We also need to extract features from the user side. Just run the following commands:
 ```bash
-$ python src/attributes_extractor.py [city]
+$ python preprocess/attributes_extractor.py [city]
 ```
 `city` can be `lv`, `tor`, `phx`, and `all`. `all` will auto run all cities.
 This will generate `processed_city_user_profile.csv`, `processed_city_business_profile.csv`, `processed_city_user_profile_distinct.csv`, and `cols_disc_info.pkl`.
@@ -142,71 +134,10 @@ $ python src/geolocations.py --city=lv --num_lat_grid 30 --num_long_grid 30 --nu
 
 ## Appendix
 
-### Counting based hyperparameters
-
-#### `lv`:
-```text
-user train max - 34389, min - 1
-business train max - 17394, min - 1
-user test min included
-user test max included
-business test min included
-business test max 17395
-#. of fields: 8
-        feature useful_score - count 10
-        feature yelping_years - count 10
-        feature cool_score - count 10
-        feature elite_count - count 10
-        feature avg_stars - count 10
-        feature review_count - count 10
-        feature fans_count - count 10
-        feature funny_score - count 10
-total distinct features: 80
+1. To disable the wordy `Warnings` of TensorFlow please add the following:
+```python
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # << this line disables the warnings
+import tensorflow as tf
 ```
-
-#### `tor`:
-```text
-user train max - 9582, min - 1
-business train max - 9102, min - 1
-user test min included
-user test max included
-business test min included
-business test max included
-#. of fields: 8
-        feature avg_stars - count 10
-        feature cool_score - count 10
-        feature elite_count - count 10
-        feature fans_count - count 10
-        feature funny_score - count 10
-        feature review_count - count 10
-        feature useful_score - count 10
-        feature yelping_years - count 10
-80
-```
-
-#### `phx`:
-```text
-user train max - 11289, min - 1
-business train max - 9633, min - 1
-user test min included
-user test max included
-business test min included
-business test max included
-#. of fields: 8
-        feature avg_stars - count 10
-        feature cool_score - count 10
-        feature elite_count - count 10
-        feature fans_count - count 10
-        feature funny_score - count 10
-        feature review_count - count 10
-        feature useful_score - count 10
-        feature yelping_years - count 10
-80
-```
-
-## Change log:
-
-1. `model_nocentroid.py`: removed the centroid
-2. `model_nc_geo.py`: modified on top of `model_nocentroid.py`, add geo information
-
-
+However, the deprecation warnings are not removable.
