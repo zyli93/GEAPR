@@ -5,7 +5,7 @@ CUDA_VISIBLE_DEVICES=1 python3 main.py \
     --ae_layers 64,48 \
     --is_training \
     --trial_id 10086 \
-    --epoch 7 \
+    --epoch 1 \
     --batch_size 256 \
     --yelp_city tor \
     --nosave_model \

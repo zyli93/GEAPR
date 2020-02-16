@@ -92,8 +92,10 @@ class IRSModel:
         sp_mat = load_npz(in_file)  # coo
         sp_mat = normalize(sp_mat, norm="l1", axis=1)  # after normalize coo -> csr
         sp_mat = sp_mat.tocoo()
-        assert sp_mat.shape[0] == self.F.num_total_user + 1
-        assert sp_mat.shape[1] == self.F.num_total_item + 1
+        assert sp_mat.shape[0] == self.F.num_total_user + 1, \
+            "user-POI adjacency matrix dimension don't match"
+        assert sp_mat.shape[1] == self.F.num_total_item + 1, \
+            "user-POI adjacency matrix dimension don't match"
         return sp_mat.data, (sp_mat.row, sp_mat.col), sp_mat.shape
 
     def build_graph(self):

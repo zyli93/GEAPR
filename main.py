@@ -88,20 +88,10 @@ def main(args):
     """entry of training or evaluation"""
 
     print("== tf version: {} ==".format(tf.__version__))
-    print(FLAGS.ae_layers)
-    print(FLAGS.trial_id)
-    print(FLAGS.loss_type)
-    print(FLAGS.negative_sample_ratio)
-    print(FLAGS.regularization_weight)
-    print(FLAGS.embedding_dim)
-    print(FLAGS.gat_nheads)
-    print(FLAGS.afm_num_total_user_attr)
 
     # check FLAGS correctness and directories
     check_flags(FLAGS)
     create_dirs(FLAGS)
-
-    print(FLAGS.ae_layers)
 
     # build graph
     """One thing that I learned is to build model before l

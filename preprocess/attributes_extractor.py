@@ -36,14 +36,13 @@ DATE_DFL = "2019-12-01 00:00:01"
 NAME_DFL = "No Name Business"
 EMPTY_CATS = 'NoCategories'
 
-ATTR_CONFIG = "configs/user_attr_discrete.txt"
-ATTR_CONFIG_V2 = "configs/columns_{}.ini"  # This is implemented by configparser
+ATTR_CONFIG = "configs/columns_{}.ini"  # This is implemented by configparser
 
 
 def load_configs(city):
     """Automatic load the configs of columns"""
     config = configparser.ConfigParser()
-    config.read(ATTR_CONFIG_V2.format(city))
+    config.read(ATTR_CONFIG.format(city))
     return config
 
 

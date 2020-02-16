@@ -34,8 +34,7 @@ def business_latlong(city, n_lat, n_long):
     bus_profiles = load_pkl(in_file)
     entries = [{"id": 0, "lat": 0, "long": 0}]
     for i, bp in bus_profiles.items():
-        assert i == bp['business_id']
-        # print(bp["latitude"], bp['longitude'])
+        assert i == bp['business_id'], "index doesn't match in bus lat/long"
         assert abs(bp["latitude"]) > 0.01
         assert abs(bp["longitude"]) > 0.01
 

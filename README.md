@@ -2,19 +2,6 @@
 
 Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
-
-## TODO
-
-3. Polish the README to make it reproducible.
-5. Reorganize the github repo
-7. Delete unused branches in the source code
-8. Add end-to-end instruction from downloading dataset to fetch results
-9. Remove extract printing except for the results
-10. Improve the starting of the program and let it print parameter settings
-11. Remove unused arguments in the `main_zyli.py` and also change the name of this `main_zyli.py`
-12. Fix all assert with a string of error message
-13. Mention that we use `business` and `POI` interchangably.
-
 ## What is GEAPR?
 GEAPR stands for "**G**raph **E**nhanced **A**ttention network for explainable **P**OI **R**ecommendation".
 The major architecture of GEAPR is the following:
