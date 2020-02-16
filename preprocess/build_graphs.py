@@ -133,7 +133,7 @@ if __name__ == "__main__":
     input_dir = PARSE_DIR + "yelp/citycluster/" + args.yelp_city + "/"
     output_dir = GRAPH_DIR + "yelp/" + args.yelp_city + "/"
     # example output: ./data/graph/yelp/lv/..."
-    print("[Building graphs] processing {}-{} ...".format(args.dataset, args.yelp_city))
+    print("[Building graphs] processing {} ...".format(args.yelp_city))
 
     print("[Building graphs] output to {}".format(output_dir))
     make_dir_rec(output_dir)

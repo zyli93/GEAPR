@@ -18,6 +18,7 @@ Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 ## What is GEAPR?
 GEAPR stands for "**G**raph **E**nhanced **A**ttention network for explainable **P**OI **R**ecommendation".
 The major architecture of GEAPR is the following:
+
 ![GEAPR Architecture](figures/pipeline.png)
 
 In short, it uses the four different modules to analyze four motivating factors of a POI visit, 
@@ -25,8 +26,7 @@ namely structural context, neighbor impact, user attribute, and geolocation.
 
 GEAPR can achieve a great performance shown below.
 
-![Phx-Precision](figures/phx_prec.png "Precision@k on Phoenix Dataset") ![Phx-Recall](figures/phx_recall.png "Recall@k on Phoenix Dataset")
-![Tor-Precision](figures/tor_prec.png "Precision@k on Toronto Dataset") ![Tor-Recall](figures/tor_recall.png "Recall@k on Toronto Dataset")
+![Performance](figures/perf.png)
 
 
 ## Download raw dataset
@@ -98,7 +98,7 @@ We are using structural context graphs for later computations.
 Structural context graphs can be generated beforehand.
 Here's an example to generate neighbor graphs and structural context graphs:
 ```bash
-$ python preprocess/build_graphs.py --yelp_city=lv --rwr_order=3 --rwr_constant 0.05 --use_sparse_mat=True
+$ python preprocess/build_graphs.py --yelp_city=tor --rwr_order=3 --rwr_constant 0.05 --use_sparse_mat=True
 ```
 Here are two tunable hyperparameters:
 * `rwr_order`: choose between 2 and 3, number > 3 will generate a much denser graph. Defult is 3.
@@ -120,11 +120,15 @@ In the later training steps, the model will NOT use `processed_city_user_profile
 
 Please pay attention to the `[num_bkt]`, we are using bucketing for all features by default. If some of the features are categorical and you don't think applying bucketing on that is a good idea. Please add the column name in `configs/user_attr_discrete.txt`: one-line per column name.
 
-## 3. Extract Geolocation features and user/business adj features
+#### 3. Extract Geolocation features and user/POI adj features
+Use the following command to extract the geolocation features and user/POI adjacency features.
 ```bash
-$ python src/geolocations.py --city=lv --num_lat_grid 30 --num_long_grid 30 --num_user 9582 --num_business 9102
+$ python src/geolocations.py --city=[city] --num_lat_grid [n] --num_long_grid [n] --num_user 9582 --num_business 9102
 ```
-
+For example, in order to handle `tor` dataset, we will input
+```bash
+$ python src/geolocations.py --city=tor --num_lat_grid 30 --num_long_grid 30 --num_user 9582 --num_business 9102
+```
 
 
 ## Run it!

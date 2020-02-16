@@ -11,6 +11,7 @@ Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 """
 
 import sys
+sys.path.append(".")
 from datetime import datetime
 import pandas as pd
 from dateutil import parser

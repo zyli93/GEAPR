@@ -6,7 +6,8 @@ Notes:
     - starting from this doc, we use "POI" and "business"
         interchangeably
 """
-
+import sys
+sys.path.append(".")
 import argparse
 import pandas as pd
 import numpy as np
