@@ -24,7 +24,8 @@ In short, it uses the four different modules to analyze four motivating factors 
 namely structural context, neighbor impact, user attribute, and geolocation.
 
 GEAPR can achieve a great performance shown below.
-![Phx-Precision](./images/phx_prec.png =100x100 "Precision@k on Phoenix Dataset") ![Phx-Recall](./images/phx_recall.png "Recall@k on Phoenix Dataset")
+
+![Phx-Precision](./images/phx_prec.png "Precision@k on Phoenix Dataset") ![Phx-Recall](./images/phx_recall.png "Recall@k on Phoenix Dataset")
 ![Tor-Precision](./images/tor_prec.png "Precision@k on Toronto Dataset") ![Tor-Recall](./images/tor_recall.png "Recall@k on Toronto Dataset")
 
 
