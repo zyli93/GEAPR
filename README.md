@@ -3,6 +3,8 @@
 Author: Zeyu Li <zyli@cs.ucla.edu> or <zeyuli@g.ucla.edu>
 
 ## What is GEAPR?
+*News*: GEAPR has been accepted by the Applied Science Track of CIKM'21!
+
 GEAPR stands for "**G**raph **E**nhanced **A**ttention network for explainable **P**OI **R**ecommendation".
 The major architecture of GEAPR is the following:
 
